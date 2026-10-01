@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Chronicles of Canvas</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --ink:#2b2118; --paper:#f6efe2; --paper2:#ece0c8; --gold:#c9a24a; --gold-d:#9a7a2c;
+    --wine:#7a2e2e; --muted:#7d6c58; --ok:#3f7d4e; --bad:#b23b3b; --shadow:0 10px 30px rgba(43,33,24,.18);
+    --glass:rgba(255,250,240,.9);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Lora',Georgia,serif;color:var(--ink);background:
+    radial-gradient(circle at 20% 10%,#fffaf0 0,transparent 40%),
+    radial-gradient(circle at 80% 90%,#e9dcc0 0,transparent 45%),var(--paper);
+    min-height:100vh;overflow-x:hidden}
+  h1,h2,h3,.cinzel{font-family:'Cinzel',serif;letter-spacing:.04em}
+  button{font-family:inherit;cursor:pointer;border:none}
+  .btn{background:linear-gradient(180deg,#d8b65f,var(--gold));color:#2b2118;padding:.75rem 1.4rem;border-radius:999px;
+    font-family:'Cinzel',serif;font-weight:700;font-size:1rem;box-shadow:0 4px 0 var(--gold-d),var(--shadow);transition:transform .1s}
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--gold-d)}
+  .btn.ghost{background:var(--glass);border:2px solid var(--gold-d);box-shadow:none;color:var(--ink)}
+  .btn.small{padding:.45rem .9rem;font-size:.85rem}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .screen{display:none;min-height:100vh;padding:16px}
+  .screen.active{display:block;animation:fade .4s}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .wrap{max-width:1000px;margin:0 auto}
+  .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;align-items:center}
+  .pill{background:var(--glass);border:1px solid var(--paper2);border-radius:999px;padding:.4rem .9rem;font-weight:600;box-shadow:var(--shadow);white-space:nowrap}
+
+  /* HOME */
+  #home.active{display:grid;place-items:center;text-align:center}
+  .frame{border:10px solid var(--gold);outline:2px solid var(--gold-d);outline-offset:-18px;padding:48px 32px;background:#fffaf0;
+    box-shadow:var(--shadow);max-width:640px;border-radius:4px}
+  .frame h1{font-size:clamp(2rem,7vw,3.4rem);color:var(--wine)}
+  .frame .sub{color:var(--muted);margin:.6rem 0 1.6rem;font-style:italic}
+  .frame p{line-height:1.6;margin-bottom:1.6rem}
+
+  /* MAP */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .topbar h2{color:var(--wine);font-size:1.5rem}
+  .map{position:relative;background:linear-gradient(135deg,#efe3c9,#e2d1ad);border-radius:18px;padding:24px;box-shadow:var(--shadow);border:2px solid #d4bf92}
+  .path{display:grid;grid-template-columns:repeat(3,1fr);gap:28px 18px}
+  .node{position:relative;background:#fffaf0;border-radius:16px;padding:16px 12px;text-align:center;box-shadow:var(--shadow);
+    border:2px solid var(--gold);transition:transform .15s;cursor:pointer}
+  .node:hover:not(.locked){transform:translateY(-4px)}
+  .node .ico{font-size:2.6rem;display:block;margin-bottom:6px}
+  .node .num{position:absolute;top:-12px;left:-12px;width:32px;height:32px;border-radius:50%;background:var(--wine);color:#fff;display:grid;place-items:center;font-family:'Cinzel';font-weight:700}
+  .node .rew{position:absolute;top:-12px;right:-12px;width:34px;height:34px;border-radius:50%;background:var(--gold);display:grid;place-items:center;font-size:1.1rem;box-shadow:var(--shadow)}
+  .node h3{font-size:.95rem;margin-bottom:2px}
+  .node small{color:var(--muted);font-style:italic}
+  .node .stars{margin-top:6px;font-size:1.1rem;letter-spacing:2px}
+  .node.locked{filter:grayscale(1);opacity:.55;cursor:not-allowed;border-color:#bbb}
+  .node.current{animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,162,74,.6),var(--shadow)}50%{box-shadow:0 0 0 10px rgba(201,162,74,0),var(--shadow)}}
+  @media(max-width:640px){.path{grid-template-columns:repeat(2,1fr)}}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;margin-top:18px;font-style:italic}
+
+  /* 3D SCREENS */
+  #room.active,#museum.active{position:fixed;inset:0;padding:0;overflow:hidden;background:#111}
+  .stage{position:absolute;inset:0}
+  .stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  .stage canvas:active{cursor:grabbing}
+  .ov{position:absolute;z-index:5}
+  .hudtop{top:12px;left:12px;right:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;pointer-events:none}
+  .hudtop>*{pointer-events:auto}
+  .hudtop h2{font-size:1.1rem;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.6);margin-right:auto}
+  .timer{width:160px;height:12px;background:rgba(255,255,255,.35);border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.5)}
+  .timer>div{height:100%;background:linear-gradient(90deg,var(--ok),var(--gold));transition:width .2s linear}
+  .timer.low>div{background:var(--bad)}
+  .livestars{color:var(--gold);letter-spacing:2px}
+  .livestars .off{color:#bbb}
+  .panel{background:var(--glass);border-radius:14px;padding:14px;box-shadow:var(--shadow);border:1px solid var(--paper2);backdrop-filter:blur(4px)}
+  .listpanel{right:12px;top:64px;width:250px}
+  .panel h3{font-size:1rem;color:var(--wine);margin-bottom:6px}
+  .panel .note{font-size:.8rem;color:var(--muted);font-style:italic;margin-bottom:8px;line-height:1.35}
+  .targets{list-style:none;display:grid;gap:5px}
+  .targets li{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:var(--paper);font-size:.92rem}
+  .targets li.done{text-decoration:line-through;opacity:.55;background:#e3efe2}
+  .targets li .q{width:22px;text-align:center}
+  .stats{display:flex;justify-content:space-between;margin-top:10px;font-size:.88rem;font-weight:600}
+  .warn{display:none;margin-top:10px;font-size:.82rem;background:#f8e3df;color:var(--bad);border-radius:8px;padding:8px;line-height:1.35}
+  .warn.show{display:block}
+  .tips{left:50%;bottom:12px;transform:translateX(-50%);background:rgba(20,15,10,.65);color:#f6efe2;padding:.5rem 1rem;border-radius:999px;font-size:.82rem;text-align:center;max-width:94vw}
+  .zoom{left:12px;bottom:12px;display:flex;flex-direction:column;gap:6px}
+  .zoom button{width:40px;height:40px;border-radius:50%;background:var(--glass);font-size:1.3rem;font-weight:700;box-shadow:var(--shadow)}
+  .toast{left:50%;top:64px;transform:translateX(-50%);padding:.55rem 1.1rem;border-radius:999px;font-weight:600;color:#fff;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;max-width:90vw}
+  .toast.show{opacity:1}
+  .toast.good{background:rgba(47,107,61,.92)}.toast.bad{background:rgba(178,59,59,.92)}.toast.info{background:rgba(43,33,24,.85)}
+  @media(max-width:760px){
+    .listpanel{top:auto;bottom:58px;right:8px;left:8px;width:auto;padding:10px;max-height:34vh;overflow:auto}
+    .targets{grid-template-columns:1fr 1fr}
+    .targets li{font-size:.8rem;padding:4px 6px}
+    .panel .note{display:none}
+    .zoom{bottom:auto;top:110px}
+    .timer{width:100px}
+    .tips{font-size:.72rem}
+  }
+
+  /* DESKTOP CONTROLS */
+  kbd{display:inline-block;min-width:1.5em;padding:.05em .4em;border-radius:5px;background:#fffaf0;color:var(--ink);border:1px solid #c9b896;
+    border-bottom-width:3px;font-family:ui-monospace,Menlo,monospace;font-size:.78em;font-weight:700;line-height:1.4;text-align:center;margin:0 1px}
+  .tips kbd{background:rgba(255,255,255,.9)}
+  .cross{left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);pointer-events:none;display:none}
+  .cross::before,.cross::after{content:"";position:absolute;background:rgba(255,255,255,.9);box-shadow:0 0 3px rgba(0,0,0,.8)}
+  .cross::before{left:10px;top:3px;width:2px;height:16px}.cross::after{top:10px;left:3px;height:2px;width:16px}
+  .cross.on{width:30px;height:30px;border:2px solid var(--gold);border-radius:50%;box-shadow:0 0 8px rgba(201,162,74,.8)}
+  .cross.on::before{left:12px;top:7px}.cross.on::after{top:12px;left:7px}
+  body.locked .cross{display:block}
+  @media(pointer:fine){.stage canvas{cursor:crosshair}}
+  .prompt{left:50%;top:calc(50% + 28px);transform:translateX(-50%);color:#fff;font-weight:600;font-size:.9rem;text-shadow:0 1px 4px #000;pointer-events:none;white-space:nowrap}
+  .pauseov{inset:0;display:none;place-items:center;background:rgba(20,15,10,.55);z-index:20;padding:16px}
+  .pauseov.open{display:grid}
+  .keys{margin:10px auto 0;border-collapse:collapse;font-size:.9rem;text-align:left}
+  .keys td{padding:4px 8px;border-bottom:1px solid var(--paper2)}
+  .keys td:first-child{white-space:nowrap;text-align:right}
+
+  /* MUSEUM overlay */
+  .muspanel{right:12px;top:64px;width:280px;max-height:calc(100vh - 90px);overflow:auto}
+  .rankline{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+  .rankline .medal{font-size:2.2rem}
+  .bar{height:10px;background:#e4d6bb;border-radius:999px;overflow:hidden;margin:6px 0 12px}
+  .bar>div{height:100%;background:linear-gradient(90deg,var(--gold),var(--wine))}
+  .coll{display:grid;gap:6px}
+  .coll .it{display:flex;gap:8px;align-items:center;background:var(--paper);border-radius:8px;padding:6px 8px;font-size:.88rem}
+  .coll .it.lock{opacity:.45}
+  .coll .it .e{font-size:1.3rem;width:26px;text-align:center}
+  .coll .it small{display:block;color:var(--muted);font-style:italic;font-size:.75rem}
+  .coll .it button{margin-left:auto}
+  @media(max-width:760px){.muspanel{top:auto;bottom:58px;left:8px;right:8px;width:auto;max-height:36vh}}
+
+  /* MODAL */
+  .modal{position:fixed;inset:0;background:rgba(30,22,14,.6);display:none;place-items:center;padding:16px;z-index:50}
+  .modal.open{display:grid;animation:fade .3s}
+  .card{background:#fffaf0;border:8px solid var(--gold);border-radius:8px;max-width:540px;width:100%;padding:26px 22px;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:90vh;overflow:auto}
+  .card h2{color:var(--wine);margin-bottom:8px}
+  .bigstars{font-size:2.6rem;letter-spacing:6px;margin:6px 0}
+  .bigstars span{display:inline-block;animation:pop .4s backwards}
+  .bigstars span:nth-child(2){animation-delay:.2s}.bigstars span:nth-child(3){animation-delay:.4s}
+  @keyframes pop{from{transform:scale(0)}}
+  .reward{display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,#fff4d6,#f3e2b5);border:2px solid var(--gold);border-radius:10px;padding:12px;margin:12px 0;text-align:left}
+  .reward .e{font-size:2.4rem}
+  .lore{text-align:left;background:var(--paper);border-left:4px solid var(--gold);padding:12px 14px;margin:12px 0;line-height:1.55;border-radius:4px;font-size:.95rem}
+  .lore h4{font-family:'Cinzel';margin-bottom:6px}
+  .lore em{color:var(--muted)}
+  .pick{display:grid;gap:8px;margin:14px 0}
+  .pick button{display:flex;gap:10px;align-items:center;background:var(--paper);border:2px solid var(--paper2);border-radius:10px;padding:10px;text-align:left;font-size:.95rem}
+  .pick button.cur{border-color:var(--gold);background:#fff4d6}
+  .pick button .e{font-size:1.6rem}
+  .loading{position:fixed;inset:0;display:none;place-items:center;background:rgba(246,239,226,.9);z-index:60;font-family:'Cinzel';font-size:1.2rem;color:var(--wine)}
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<section id="home" class="screen active">
+  <div class="frame">
+    <h1>Chronicles of Canvas</h1>
+    <div class="sub">Un viaggio nella storia dell'arte universale</div>
+    <p>Entra nelle <strong>stanze 3D</strong> delle grandi epoche artistiche, guardati intorno, sposta vasi, apri bauli e solleva drappi
+       per scovare gli <strong>oggetti d'epoca</strong> nascosti. Con <strong>3 stelle</strong> superi la stanza e ricevi un
+       pezzo da collezione per abbellire il tuo <strong>museo personale</strong>.</p>
+    <div class="row">
+      <button class="btn" onclick="go('map')">Inizia il viaggio</button>
+      <button class="btn ghost" onclick="go('museum')">Il mio museo</button>
+    </div>
+  </div>
+</section>
+
+<!-- MAP -->
+<section id="map" class="screen">
+  <div class="wrap">
+    <div class="topbar">
+      <h2>🗺️ Mappa del Tempo</h2>
+      <div class="row">
+        <span class="pill" id="mapStars">⭐ 0</span>
+        <button class="btn small ghost" onclick="go('museum')">🏛️ Museo</button>
+        <button class="btn small ghost" onclick="go('home')">Home</button>
+      </div>
+    </div>
+    <div class="map"><div class="path" id="path"></div></div>
+    <footer>Per superare una stanza servono 3 stelle: solo così si apre la stanza successiva.</footer>
+  </div>
+</section>
+
+<!-- ROOM 3D -->
+<section id="room" class="screen">
+  <div class="stage" id="roomStage"></div>
+  <div class="ov hudtop">
+    <h2 id="roomTitle">Stanza</h2>
+    <span class="pill livestars" id="liveStars">★★★</span>
+    <span class="pill" id="timeLbl">⏳ 150s</span>
+    <div class="timer" id="timer"><div id="timerFill" style="width:100%"></div></div>
+    <button class="btn small" onclick="useHint()">💡 Indizio <kbd>H</kbd> (−15s)</button>
+    <button class="btn small ghost" onclick="leaveRoom()">← Mappa</button>
+  </div>
+  <aside class="ov panel listpanel">
+    <h3>Oggetti da trovare</h3>
+    <div class="note">Sposta, apri e solleva gli oggetti della stanza. Raccogli solo quelli della lista: anche gli altri sono d'epoca, ma non ti servono!</div>
+    <ul class="targets" id="targets"></ul>
+    <div class="stats"><span id="foundLbl">0/5</span><span id="errLbl">Errori: 0</span></div>
+    <div class="note" style="margin:8px 0 0">3 ★ = massimo 2 errori e almeno 45 s rimasti.</div>
+    <div class="warn" id="warn">Le 3 stelle non sono più raggiungibili in questo tentativo.
+      <div style="margin-top:6px"><button class="btn small" onclick="retryRoom()">Ricomincia la stanza</button></div></div>
+  </aside>
+  <div class="ov zoom"><button onclick="zoom(-8)">+</button><button onclick="zoom(8)">−</button></div>
+  <div class="ov tips" id="roomTips"></div>
+  <div class="ov cross"></div><div class="ov prompt"></div>
+  <div class="ov pauseov" id="pauseOv"><div class="card"></div></div>
+  <div class="ov toast" id="toast"></div>
+</section>
+
+<!-- MUSEUM 3D -->
+<section id="museum" class="screen">
+  <div class="stage" id="museumStage"></div>
+  <div class="ov hudtop">
+    <h2>🏛️ Il Mio Museo</h2>
+    <button class="btn small ghost" onclick="go('map')">🗺️ Mappa</button>
+    <button class="btn small ghost" onclick="go('home')">Home</button>
+  </div>
+  <aside class="ov panel muspanel" id="musPanel"></aside>
+  <div class="ov zoom"><button onclick="zoom(-8)">+</button><button onclick="zoom(8)">−</button></div>
+  <div class="ov tips" id="musTips"></div>
+  <div class="ov cross"></div><div class="ov prompt"></div>
+</section>
+
+<div class="modal" id="modal"><div class="card" id="modalCard"></div></div>
+<div class="loading" id="loading">Il tempo si sta riavvolgendo…</div>
+
+<script>
+// @@CORE-START
+const C = THREE, PI = Math.PI;
+const R = Math.random, rnd = (a,b)=>a+R()*(b-a);
+const GOLD = 0xd4a83a, GM = {m:.8,r:.35};
+const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a };
+
+/* ---------------- PROCEDURAL TEXTURES ---------------- */
+const TEXC = {};
+function tex(type, rep=[1,1], opt={}){
+  const key = type + JSON.stringify(opt);
+  if(!TEXC[key]) TEXC[key] = drawTex(type,opt);
+  const t = TEXC[key].clone(); t.needsUpdate = true; t.repeat.set(rep[0],rep[1]); return t;
+}
+function noise(g,w,h,n,col){ g.fillStyle=col; for(let i=0;i<n;i++) g.fillRect(R()*w,R()*h,2,2) }
+function drawTex(type,o){
+  const w=o.w||512, h=o.h||512, cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  const g=cv.getContext('2d');
+  const fill=(c)=>{g.fillStyle=c;g.fillRect(0,0,w,h)};
+  switch(type){
+    case 'hiero': {
+      fill('#d6b676'); noise(g,w,h,2500,'rgba(120,80,30,0.08)');
+      g.fillStyle='#d9a23a';g.fillRect(0,22,w,6);g.fillStyle='#2f6a8a';g.fillRect(0,30,w,16);g.fillRect(0,h-46,w,16);
+      g.fillStyle='#a33d2a';g.fillRect(0,50,w,6);g.fillRect(0,h-56,w,6);
+      const cols=8,cw=w/cols,top=80,rows=6,rh=(h-170)/rows;
+      g.strokeStyle='rgba(74,52,32,.3)';g.lineWidth=2;
+      for(let c=0;c<=cols;c++){g.beginPath();g.moveTo(c*cw,top-10);g.lineTo(c*cw,h-70);g.stroke()}
+      g.lineWidth=4;
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+        const cx=c*cw+cw/2,cy=top+r*rh+rh/2,s=rh*.3,col=['#4a3420','#2f6a8a','#a33d2a','#4a3420'][Math.floor(R()*4)];
+        g.fillStyle=g.strokeStyle=col; g.beginPath();
+        switch(Math.floor(R()*8)){
+          case 0: g.arc(cx,cy,s,0,7);g.stroke();break;
+          case 1: g.moveTo(cx,cy-s);g.lineTo(cx+s,cy+s);g.lineTo(cx-s,cy+s);g.closePath();g.fill();break;
+          case 2: for(let x=-s;x<=s;x+=3)g.lineTo(cx+x,cy+Math.sin(x/s*PI*2)*s*.35);g.stroke();break;
+          case 3: g.fillRect(cx-3,cy-s,6,s*2);g.arc(cx,cy-s,s*.35,0,7);g.fill();break;
+          case 4: g.ellipse(cx,cy,s,s*.5,0,0,7);g.stroke();g.beginPath();g.arc(cx,cy,s*.25,0,7);g.fill();break;
+          case 5: g.moveTo(cx-s,cy+s*.5);g.lineTo(cx-s*.4,cy-s*.5);g.lineTo(cx,cy+s*.5);g.lineTo(cx+s*.5,cy-s*.5);g.lineTo(cx+s,cy+s*.5);g.stroke();break;
+          case 6: g.strokeRect(cx-s*.7,cy-s*.7,s*1.4,s*1.4);break;
+          default: g.arc(cx,cy+s*.4,s,PI,0);g.fill();
+        }
+      }
+      break;
+    }
+    case 'marble': {
+      fill(o.c||'#efebe4'); noise(g,w,h,1500,'rgba(0,0,0,0.03)');
+      for(let i=0;i<34;i++){g.strokeStyle=`rgba(${o.v||'110,110,120'},${.05+R()*.18})`;g.lineWidth=.5+R()*2.5;g.beginPath();
+        g.moveTo(R()*w,R()*h);g.bezierCurveTo(R()*w,R()*h,R()*w,R()*h,R()*w,R()*h);g.stroke()}
+      break;
+    }
+    case 'stone': {
+      fill('#4a4744'); const bh=h/10;
+      for(let r=0;r<10;r++){const off=r%2?64:0; for(let x=-128;x<w;x+=128){const v=90+Math.floor(R()*35);
+        g.fillStyle=`rgb(${v},${v-4},${v-10})`;g.fillRect(x+off+3,r*bh+3,122,bh-6)}}
+      noise(g,w,h,3000,'rgba(0,0,0,0.12)'); break;
+    }
+    case 'fresco': {
+      const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#ecd6b0');gr.addColorStop(1,'#dcb98f');g.fillStyle=gr;g.fillRect(0,0,w,h);
+      for(let i=0;i<40;i++){const x=R()*w,y=R()*h*.7,r=20+R()*80,rg=g.createRadialGradient(x,y,0,x,y,r);
+        rg.addColorStop(0,`rgba(${180+R()*60|0},${140+R()*60|0},${100+R()*40|0},.25)`);rg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=rg;g.fillRect(0,0,w,h)}
+      g.fillStyle='#8a3a2a';g.fillRect(0,h*.76,w,h*.24);g.fillStyle='#c9a24a';g.fillRect(0,h*.74,w,10);g.fillRect(0,14,w,8);
+      g.strokeStyle='rgba(60,30,20,.35)';g.lineWidth=3;for(let x=32;x<w;x+=128)g.strokeRect(x,h*.8,96,h*.15);
+      break;
+    }
+    case 'damask': {
+      fill(o.c||'#5b1b20'); g.strokeStyle='rgba(212,168,58,.45)';g.fillStyle='rgba(212,168,58,.4)';g.lineWidth=2;
+      for(let y=0;y<h;y+=64)for(let x=0;x<w;x+=64){const cx=x+32+(y/64%2?32:0),cy=y+32;
+        g.beginPath();g.moveTo(cx,cy-26);g.quadraticCurveTo(cx+22,cy,cx,cy+26);g.quadraticCurveTo(cx-22,cy,cx,cy-26);g.stroke();
+        g.beginPath();g.arc(cx,cy,5,0,7);g.fill();}
+      break;
+    }
+    case 'dabs': {
+      fill(o.c||'#e3ece6'); g.lineCap='round';
+      const hues=o.hues||[200,140,50,330,280];
+      for(let i=0;i<2600;i++){g.strokeStyle=`hsla(${hues[i%hues.length]+rnd(-12,12)},${rnd(35,60)}%,${rnd(68,84)}%,.7)`;g.lineWidth=rnd(4,9);
+        const x=R()*w,y=R()*h,a=rnd(-.6,.6);g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(a)*14,y+Math.sin(a)*14);g.stroke()}
+      break;
+    }
+    case 'checker': { fill(o.a); g.fillStyle=o.b; const s=w/8; for(let y=0;y<8;y++)for(let x=0;x<8;x++) if((x+y)%2) g.fillRect(x*s,y*s,s,s);
+      noise(g,w,h,2500,'rgba(0,0,0,0.05)'); break; }
+    case 'wood': {
+      fill(o.c||'#8a5a32'); const pw=w/6;
+      for(let i=0;i<6;i++){g.fillStyle=`rgba(0,0,0,${R()*.15})`;g.fillRect(i*pw,0,pw,h);g.fillStyle='rgba(0,0,0,.35)';g.fillRect(i*pw,0,2,h);
+        g.strokeStyle='rgba(40,20,5,.18)';g.lineWidth=1;for(let k=0;k<10;k++){const x=i*pw+R()*pw;g.beginPath();g.moveTo(x,0);g.bezierCurveTo(x+rnd(-8,8),h/3,x+rnd(-8,8),h*2/3,x,h);g.stroke()}
+        g.fillStyle='rgba(0,0,0,.3)';g.fillRect(i*pw,(R()*h)|0,pw,2)}
+      break;
+    }
+    case 'sand': { fill('#cfb07a'); g.fillStyle='#b8965e'; const s=w/4;
+      for(let y=0;y<4;y++)for(let x=0;x<4;x++){const v=R()*20-10;g.fillStyle=`rgb(${205+v},${175+v},${120+v})`;g.fillRect(x*s+3,y*s+3,s-6,s-6)}
+      noise(g,w,h,3000,'rgba(90,60,20,0.1)'); break; }
+    case 'rug': {
+      fill(o.a); g.strokeStyle=o.b;g.lineWidth=18;g.strokeRect(24,24,w-48,h-48);g.lineWidth=6;g.strokeRect(56,56,w-112,h-112);
+      g.fillStyle=o.b; for(let y=96;y<h-96;y+=64)for(let x=96;x<w-96;x+=64){g.beginPath();g.moveTo(x+32,y+8);g.lineTo(x+56,y+32);g.lineTo(x+32,y+56);g.lineTo(x+8,y+32);g.closePath();g.fill()}
+      noise(g,w,h,3000,'rgba(0,0,0,0.08)'); break;
+    }
+    case 'canvasDabs': {
+      const sky=g.createLinearGradient(0,0,0,h*.55);sky.addColorStop(0,'#7fb3d8');sky.addColorStop(1,'#f3d9b8');g.fillStyle=sky;g.fillRect(0,0,w,h*.55);
+      g.fillStyle='#5a8fae';g.fillRect(0,h*.55,w,h*.45); g.lineCap='round';
+      const dab=(y0,y1,hue,l)=>{for(let i=0;i<700;i++){g.strokeStyle=`hsla(${hue+rnd(-20,20)},55%,${l+rnd(-10,10)}%,.8)`;g.lineWidth=rnd(3,7);const x=R()*w,y=rnd(y0,y1);g.beginPath();g.moveTo(x,y);g.lineTo(x+rnd(6,14),y+rnd(-2,2));g.stroke()}};
+      dab(0,h*.5,205,75); dab(h*.45,h*.6,30,75); dab(h*.56,h,200,55); dab(h*.75,h,120,45);
+      g.fillStyle='rgba(255,220,150,.9)';g.beginPath();g.arc(w*.72,h*.32,26,0,7);g.fill();
+      break;
+    }
+    case 'chiaro': {
+      fill('#120c08'); const rg=g.createRadialGradient(w*.4,h*.4,10,w*.4,h*.4,w*.6);rg.addColorStop(0,'rgba(200,150,90,.55)');rg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=rg;g.fillRect(0,0,w,h);
+      g.fillStyle='#3a2414';g.fillRect(0,h*.68,w,h*.32);
+      [['#b8372a',.3,.6,40],['#d8a03a',.45,.62,34],['#6a2a5a',.58,.6,30],['#e8dcc0',.7,.57,26],['#3a6a2a',.36,.52,22]].forEach(([c,x,y,r])=>{
+        const q=g.createRadialGradient(w*x-r*.3,h*y-r*.3,2,w*x,h*y,r);q.addColorStop(0,'#fff6e0');q.addColorStop(.25,c);q.addColorStop(1,'#120c08');g.fillStyle=q;g.beginPath();g.arc(w*x,h*y,r,0,7);g.fill()});
+      break;
+    }
+    case 'frescoArt': {
+      const sky=g.createLinearGradient(0,0,0,h*.5);sky.addColorStop(0,'#7aa6c8');sky.addColorStop(1,'#efe2c6');g.fillStyle=sky;g.fillRect(0,0,w,h*.5);
+      g.fillStyle='#e9dcc2';g.fillRect(0,h*.5,w,h*.5);
+      const vx=w/2,vy=h*.48; g.strokeStyle='rgba(90,60,40,.6)';g.lineWidth=2;
+      for(let i=-6;i<=6;i++){g.beginPath();g.moveTo(vx,vy);g.lineTo(vx+i*90,h);g.stroke()}
+      for(let k=1;k<8;k++){const y=vy+(h-vy)*Math.pow(k/8,1.8);g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke()}
+      g.fillStyle='#d8c4a0';[[.12,.2],[.78,.2]].forEach(([x])=>{g.fillRect(w*x,h*.12,w*.1,h*.4)});
+      g.strokeStyle='#b89a70';g.lineWidth=10;g.beginPath();g.arc(w/2,h*.4,w*.22,PI,0);g.stroke();
+      break;
+    }
+    case 'glass': {
+      g.save(); g.beginPath(); const cx=w/2, cy=h*.263, r=w/2-4;
+      g.moveTo(4,h);g.lineTo(4,cy);g.arc(cx,cy,r,PI,0);g.lineTo(w-4,h);g.closePath();g.clip();
+      fill('#101018'); const cols=['#b0202a','#1f3fa8','#e0b020','#2a8a4a','#7a2a9a','#d06020','#3a8ac0'];
+      for(let y=0;y<h;y+=48)for(let x=0;x<w;x+=42){g.fillStyle=cols[Math.floor(R()*cols.length)];
+        g.beginPath();g.moveTo(x+3,y+3);g.lineTo(x+39,y+3+rnd(0,8));g.lineTo(x+39,y+45);g.lineTo(x+3,y+45-rnd(0,8));g.closePath();g.fill()}
+      g.strokeStyle='#111';g.lineWidth=7;g.beginPath();g.arc(cx,cy+40,60,0,7);g.stroke();
+      g.fillStyle='#e8d8a0';g.beginPath();g.arc(cx,cy+40,26,0,7);g.fill();
+      g.restore(); break;
+    }
+  }
+  const t=new C.CanvasTexture(cv); t.wrapS=t.wrapT=C.RepeatWrapping; t.encoding=C.sRGBEncoding; t.anisotropy=8; return t;
+}
+
+/* ---------------- GEOMETRY HELPERS ---------------- */
+function M(c,o={}){
+  const m=new C.MeshStandardMaterial({color:c,roughness:o.r!==undefined?o.r:.75,metalness:o.m||0,side:o.ds?C.DoubleSide:C.FrontSide});
+  if(o.e){m.emissive=new C.Color(o.e);m.emissiveIntensity=o.ei||1}
+  if(o.map)m.map=o.map;
+  if(o.emap){m.emissiveMap=o.emap;m.emissive=new C.Color(0xffffff);m.emissiveIntensity=o.ei||.7}
+  if(o.at){m.transparent=true;m.alphaTest=o.at}
+  return m;
+}
+function mesh(geo,m,x=0,y=0,z=0){const me=new C.Mesh(geo,m);me.position.set(x,y,z);return me}
+const BOX=(w,h,d,c,x,y,z,o)=>mesh(new C.BoxGeometry(w,h,d),M(c,o),x,y,z);
+const CYL=(rt,rb,h,c,x,y,z,o,seg=24)=>mesh(new C.CylinderGeometry(rt,rb,h,seg),M(c,o),x,y,z);
+const SPH=(r,c,x,y,z,o)=>mesh(new C.SphereGeometry(r,22,16),M(c,o),x,y,z);
+const TOR=(r,t,c,x,y,z,o,arc=PI*2)=>mesh(new C.TorusGeometry(r,t,10,32,arc),M(c,o),x,y,z);
+const CONE=(r,h,c,x,y,z,o,seg=18)=>mesh(new C.ConeGeometry(r,h,seg),M(c,o),x,y,z);
+const LATHE=(pts,c,o={})=>mesh(new C.LatheGeometry(pts.map(p=>new C.Vector2(p[0],p[1])),32),M(c,Object.assign({ds:true},o)));
+const PLANE=(w,h,o,x,y,z)=>mesh(new C.PlaneGeometry(w,h),new C.MeshStandardMaterial(o),x,y,z);
+function grp(...a){const g=new C.Group();a.forEach(x=>x&&g.add(x));return g}
+function rot(m,x=0,y=0,z=0){m.rotation.set(x,y,z);return m}
+function sc(m,x,y,z){m.scale.set(x,y===undefined?x:y,z===undefined?x:z);return m}
+const shade=(c,f)=>{const k=new C.Color(c);k.multiplyScalar(f);return k.getHex()};
+const flame=(x,y,z,s=1)=>sc(CONE(.012,.04,0xffb030,x,y,z,{e:0xff9020}),s);
+
+/* ---------------- BUILDERS ---------------- */
+const B = {
+  // ----- furniture & decor -----
+  table:(w,d,c)=>{const l=shade(c,.8);return grp(BOX(w,.06,d,c,0,.87,0),
+    CYL(.035,.03,.84,l,w/2-.09,.42,d/2-.09),CYL(.035,.03,.84,l,-w/2+.09,.42,d/2-.09),CYL(.035,.03,.84,l,w/2-.09,.42,-d/2+.09),CYL(.035,.03,.84,l,-w/2+.09,.42,-d/2+.09))},
+  column:(h,c,b)=>grp(BOX(.75,.25,.75,c,0,.125,0),CYL(.27,.31,h-.65,c,0,.25+(h-.65)/2,0),CYL(.3,.3,.1,b,0,h-.35,0),CYL(.42,.3,.12,c,0,h-.24,0),BOX(.8,.18,.8,c,0,h-.09,0)),
+  palm:()=>{const g=grp(CYL(.25,.18,.4,0xa0522d,0,.2,0),CYL(.05,.07,1.4,0x7a5a3a,0,1.1,0));
+    for(let i=0;i<8;i++){const a=i/8*PI*2,l=sc(SPH(.4,0x3f7a3a,Math.cos(a)*.35,1.78,Math.sin(a)*.35),1,.07,.22);l.rotation.set(0,-a,-.35);g.add(l)}return g},
+  plant:()=>grp(CYL(.22,.16,.38,0x9a5a3a,0,.19,0),SPH(.32,0x4a7a3a,0,.62,0),SPH(.22,0x5a8a4a,.15,.82,.08),SPH(.2,0x3f6a32,-.14,.78,-.06)),
+  flowerPot:()=>{const g=grp(CYL(.24,.18,.4,0xb87a5a,0,.2,0),SPH(.3,0x5a8a4a,0,.6,0));
+    for(let i=0;i<9;i++)g.add(SPH(.06,[0xf2a0b8,0xf0d040,0xffffff,0xb070d0][i%4],rnd(-.22,.22),rnd(.65,.85),rnd(-.22,.22)));return g},
+  statue:(c)=>grp(BOX(.6,.9,.6,shade(c,.85),0,.45,0),CYL(.17,.24,.9,c,0,1.35,0),sc(SPH(.24,c,0,1.8,0),1,.45,.65),SPH(.13,c,0,2.02,0)),
+  urnDeco:(c)=>LATHE([[0,0],[.18,0],[.22,.1],[.3,.4],[.26,.7],[.15,.85],[.2,.95],[0,.95]],c),
+  torch:()=>grp(CYL(.18,.22,.08,0x333333,0,.04,0,{m:.5}),CYL(.035,.045,1.6,0x333333,0,.84,0,{m:.6}),LATHE([[0,0],[.06,0],[.16,.14]],0x444444,{m:.6}).translateY(1.62),sc(CONE(.1,.3,0xff9a30,0,1.9,0,{e:0xff7a10}),1)),
+  candelabraStand:()=>grp(CYL(.2,.24,.06,GOLD,0,.03,0,GM),CYL(.03,.04,1.5,GOLD,0,.78,0,GM),BOX(.6,.03,.06,GOLD,0,1.5,0,GM),
+    CYL(.03,.03,.16,0xf3ead2,-.27,1.6,0),CYL(.03,.03,.16,0xf3ead2,0,1.6,0),CYL(.03,.03,.16,0xf3ead2,.27,1.6,0),flame(-.27,1.71,0,1.5),flame(0,1.71,0,1.5),flame(.27,1.71,0,1.5)),
+  easel:(tx,s=1)=>{const g=grp(rot(CYL(.02,.02,1.7,0x8b5a2b,-.3,.85,0),0,0,-.12),rot(CYL(.02,.02,1.7,0x8b5a2b,.3,.85,0),0,0,.12),
+    rot(CYL(.02,.02,1.6,0x8b5a2b,0,.78,-.32),.32,0,0),BOX(.8,.03,.1,0x8b5a2b,0,.76,.03),BOX(.82,.62,.03,0xf5f0e6,0,1.1,.04),
+    PLANE(.78,.58,{map:tex(tx),roughness:.9},0,1.1,.057));g.scale.setScalar(s);return g},
+  bowl:(c)=>grp(LATHE([[0,.012],[.07,.012],[.14,.07],[.15,.085]],c),CYL(.06,.05,.012,c,0,.006,0),SPH(.04,0xc04030,-.04,.06,0),SPH(.04,0xe0a030,.04,.06,.02),SPH(.035,0x6a9a3a,0,.065,-.04)),
+  plantSmall:()=>grp(CYL(.08,.06,.12,0xa0522d,0,.06,0),SPH(.11,0x4a7a3a,0,.2,0),SPH(.07,0x5a8a4a,.06,.27,.03)),
+  tray:(c)=>grp(CYL(.2,.2,.015,c,0,.0075,0,GM),CYL(.035,.03,.07,0xece6da,-.08,.05,0),CYL(.035,.03,.07,0xece6da,.08,.05,0)),
+  bustSmall:(c)=>grp(BOX(.16,.12,.16,shade(c,.85),0,.06,0),sc(SPH(.08,c,0,.16,0),1.2,.6,.8),SPH(.06,c,0,.26,0)),
+  flowerVase:()=>{const g=grp(LATHE([[0,0],[.05,0],[.07,.08],[.04,.2],[.05,.24]],0x6aa0c0));
+    for(let i=0;i<5;i++){const x=rnd(-.05,.05),z=rnd(-.05,.05);g.add(CYL(.004,.004,.14,0x3a7a3a,x,.3,z),SPH(.03,[0xf2a0b8,0xf0d040,0xffffff,0xe06040][i%4],x,.38,z))}return g},
+  frame:(tx,w,h,fc)=>{const t=.08;return grp(PLANE(w,h,{map:tex(tx),roughness:.85},0,0,0),
+    BOX(w+t*2,t,.06,fc,0,h/2+t/2,0,GM),BOX(w+t*2,t,.06,fc,0,-h/2-t/2,0,GM),BOX(t,h,.06,fc,-w/2-t/2,0,0,GM),BOX(t,h,.06,fc,w/2+t/2,0,0,GM))},
+  window:(w,h)=>{const t=tex('glass',[1,1],{w:256,h:Math.round(256*h/w)});
+    return mesh(new C.PlaneGeometry(w,h),new C.MeshStandardMaterial({map:t,emissiveMap:t,emissive:0xffffff,emissiveIntensity:.85,transparent:true,alphaTest:.5,side:C.DoubleSide}))},
+
+  // ----- hiders: table -----
+  chest:(c)=>{const w=.52,h=.28,d=.4,t=.025,g=grp(BOX(w,t,d,c,0,t/2,0),BOX(w,h,t,c,0,h/2,-d/2+t/2),BOX(w,h,t,c,0,h/2,d/2-t/2),
+      BOX(t,h,d,c,-w/2+t/2,h/2,0),BOX(t,h,d,c,w/2-t/2,h/2,0),BOX(w+.01,.03,d+.01,GOLD,0,.05,0,GM),BOX(.07,.08,.012,GOLD,0,h*.75,-d/2-.006,GM));
+    const lid=new C.Group();lid.position.set(0,h,d/2);lid.add(BOX(w+.02,.05,d+.02,shade(c,1.1),0,.025,-d/2),BOX(.06,.05,.014,GOLD,0,.0,-d-.012,GM));
+    g.add(lid);g.userData.lid=lid;return g},
+  basket:(c)=>grp(CYL(.24,.2,.32,c,0,.16,0),TOR(.22,.012,shade(c,.7),0,.1,0).rotateX(PI/2),TOR(.235,.012,shade(c,.7),0,.24,0).rotateX(PI/2),
+    CYL(.255,.255,.04,shade(c,.85),0,.34,0),SPH(.035,shade(c,.6),0,.37,0)),
+  cloth:(c)=>grp(BOX(.62,.02,.62,c,0,.01,0),BOX(.5,.28,.5,c,0,.14,0),sc(SPH(.26,c,0,.28,0),1,.22,1),BOX(.52,.02,.03,GOLD,0,.05,.26,GM)),
+  jar:(c)=>grp(LATHE([[0,0],[.22,0],[.27,.12],[.26,.3],[.17,.42],[.12,.46],[.15,.5],[0,.5]],c),CYL(.271,.271,.04,shade(c,.6),0,.2,0)),
+  books:(c)=>grp(BOX(.46,.11,.36,c,0,.055,0),BOX(.44,.1,.33,0xf1e6c8,.012,.055,0),BOX(.44,.11,.34,shade(c,.7),.01,.165,.01),
+    BOX(.42,.1,.31,0xf1e6c8,.022,.165,.01),rot(BOX(.42,.1,.33,shade(c,1.3),-.01,.27,0),0,.08,0)),
+  // ----- hiders: floor -----
+  sarcophagus:(c)=>grp(BOX(.62,.5,1.2,c,0,.25,0),BOX(.66,.1,1.26,shade(c,1.1),0,.55,0),BOX(.63,.06,1.21,0x2f6a8a,0,.32,0),BOX(.63,.06,1.21,0xa33d2a,0,.18,0),
+    sc(SPH(.22,shade(c,1.1),0,.62,-.38),1,.4,1.1)),
+  bigVase:(c)=>grp(LATHE([[0,0],[.2,0],[.3,.15],[.42,.45],[.38,.7],[.2,.9],[.15,.98],[.2,1.05],[0,1.05]],c),
+    CYL(.425,.425,.12,0x1a1a1a,0,.5,0),TOR(.1,.025,c,-.28,.85,0),TOR(.1,.025,c,.28,.85,0)),
+  barrel:(c)=>grp(LATHE([[0,0],[.33,0],[.39,.42],[.33,.85],[0,.85]],c),TOR(.35,.018,0x3a3a3a,0,.12,0,{m:.6}).rotateX(PI/2),TOR(.35,.018,0x3a3a3a,0,.73,0,{m:.6}).rotateX(PI/2),TOR(.39,.018,0x3a3a3a,0,.42,0,{m:.6}).rotateX(PI/2)),
+  crate:(c)=>{const d=shade(c,.7);return grp(BOX(.75,.75,.75,c,0,.375,0),BOX(.77,.08,.77,d,0,.08,0),BOX(.77,.08,.77,d,0,.67,0),rot(BOX(.06,.95,.77,d,0,.375,0),0,0,.78))},
+  drum:(c)=>grp(CYL(.42,.42,.6,c,0,.3,0,{},20),CYL(.44,.44,.05,shade(c,.9),0,.6,0),CYL(.44,.44,.05,shade(c,.9),0,.025,0)),
+
+  // ----- targets & distractors -----
+  scarab:()=>grp(sc(SPH(.1,0x1f5a4a,0,.05,0,{m:.5,r:.3}),1,.5,1.3),sc(SPH(.05,0x16463a,0,.04,-.15,{m:.5,r:.3}),1.2,.6,1),BOX(.008,.012,.24,GOLD,0,.1,0,GM),
+    rot(BOX(.24,.006,.01,0x16463a,0,.01,.02),0,.3,0),rot(BOX(.24,.006,.01,0x16463a,0,.01,-.04),0,-.3,0)),
+  papyrus:()=>grp(BOX(.24,.006,.18,0xefe2b5,0,.003,0),rot(CYL(.032,.032,.27,0xe2d2a0,0,.032,-.1),0,0,PI/2),rot(CYL(.032,.032,.27,0xe2d2a0,0,.032,.1),0,0,PI/2),
+    BOX(.18,.002,.006,0x5a3a1a,0,.008,0),BOX(.16,.002,.006,0x5a3a1a,0,.008,.035),BOX(.17,.002,.006,0x5a3a1a,0,.008,-.035)),
+  canopic:()=>grp(LATHE([[0,0],[.07,0],[.085,.06],[.08,.14],[.055,.17],[0,.17]],0xe9dfc6),SPH(.05,0x2a2a2a,0,.2,0),sc(SPH(.025,0x2a2a2a,0,.19,.05),1,.8,1.5),
+    CONE(.015,.05,0x2a2a2a,-.024,.25,0),CONE(.015,.05,0x2a2a2a,.024,.25,0),CYL(.086,.086,.02,0x2f6a8a,0,.09,0)),
+  cat:()=>grp(BOX(.13,.02,.1,GOLD,0,.01,0,GM),sc(SPH(.065,0x1f1f1f,0,.09,0,{m:.4,r:.35}),.85,1.35,.85),SPH(.045,0x1f1f1f,0,.19,.01,{m:.4,r:.35}),
+    CONE(.016,.045,0x1f1f1f,-.022,.24,0),CONE(.016,.045,0x1f1f1f,.022,.24,0),TOR(.04,.006,GOLD,0,.15,0,GM).rotateX(PI/2)),
+  ankh:()=>grp(BOX(.08,.012,.06,0x2f6a8a,0,.006,0),BOX(.025,.13,.025,GOLD,0,.075,0,GM),BOX(.11,.025,.025,GOLD,0,.14,0,GM),TOR(.035,.012,GOLD,0,.19,0,GM)),
+  owl:()=>grp(BOX(.12,.02,.1,0xece6da,0,.01,0),sc(SPH(.065,0x9a8a6a,0,.1,0),1,1.25,.95),SPH(.048,0x9a8a6a,0,.19,0),SPH(.015,0xf0d070,-.02,.2,.04),SPH(.015,0xf0d070,.02,.2,.04),
+    CONE(.012,.03,0x8a7a5a,-.03,.24,0),CONE(.012,.03,0x8a7a5a,.03,.24,0)),
+  olive:()=>{const g=grp(rot(CYL(.008,.01,.28,0x6b4f2a,0,.012,0),0,0,PI/2));
+    for(let i=0;i<8;i++){const x=-.12+i*.034,s=i%2?1:-1,l=sc(SPH(.03,0x6b8e4e,x,.015,s*.03),1.8,.3,.6);l.rotation.y=s*.5;g.add(l);if(i%3===0)g.add(SPH(.015,0x2d3a1f,x+.01,.02,-s*.025))}return g},
+  mask:()=>grp(BOX(.12,.02,.06,0x7a5a3a,0,.01,0),sc(SPH(.1,0xf2ead8,0,.12,0),1,1.2,.45),SPH(.018,0x222222,-.035,.14,.04),SPH(.018,0x222222,.035,.14,.04),
+    rot(TOR(.03,.007,0x222222,0,.08,.042,{},PI),0,0,PI)),
+  lyre:()=>{const w=0x8b5a2b,g=grp(BOX(.18,.04,.05,w,0,.02,0),rot(CYL(.012,.015,.22,w,-.07,.13,0),0,0,.25),rot(CYL(.012,.015,.22,w,.07,.13,0),0,0,-.25),BOX(.21,.02,.02,w,0,.24,0));
+    for(let i=0;i<4;i++)g.add(CYL(.002,.002,.2,GOLD,-.045+i*.03,.135,0,GM));return g},
+  drachma:()=>grp(CYL(.055,.055,.012,0xc8c8c8,0,.006,0,{m:.9,r:.3}),CYL(.055,.055,.012,0xc8c8c8,.07,.006,.05,{m:.9,r:.3}),CYL(.03,.03,.003,0x9a9a9a,0,.013,0,{m:.9})),
+  codex:(c=0x7a1f1f)=>grp(BOX(.26,.06,.2,c,0,.03,0),BOX(.25,.05,.19,0xf1e6c8,.006,.03,0),BOX(.05,.062,.05,GOLD,-.105,.031,-.075,GM),BOX(.05,.062,.05,GOLD,-.105,.031,.075,GM),BOX(.07,.062,.07,GOLD,0,.031,0,GM)),
+  key:()=>{const k=0x4a4a4a,o={m:.7,r:.4};return grp(TOR(.035,.011,k,0,.012,-.1,o).rotateX(PI/2),rot(CYL(.009,.009,.18,k,0,.012,0,o),PI/2,0,0),BOX(.04,.012,.02,k,.02,.012,.08,o),BOX(.03,.012,.015,k,.015,.012,.05,o))},
+  candle:()=>grp(CYL(.06,.07,.02,GOLD,0,.01,0,GM),CYL(.03,.032,.18,0xf3ead2,0,.11,0),flame(0,.225,0)),
+  chalice:(c=GOLD)=>LATHE([[0,0],[.07,0],[.07,.012],[.015,.03],[.015,.13],[.06,.16],[.075,.25],[.068,.25],[.05,.17],[0,.165]],c,GM),
+  shield:()=>grp(sc(CYL(.12,.12,.025,0x1f3f7a,0,.0125,0),1,1,1.25),BOX(.025,.006,.27,GOLD,0,.028,0,GM),BOX(.2,.006,.025,GOLD,0,.028,-.03,GM)),
+  bussola:()=>grp(CYL(.09,.09,.04,0x8b5a2b,0,.02,0),CYL(.075,.075,.004,0xf4ecd8,0,.041,0),BOX(.012,.006,.13,0xb02222,0,.045,0),SPH(.01,GOLD,0,.05,0,GM)),
+  globe:()=>{const g=grp(CYL(.06,.075,.025,0x6b4f2a,0,.0125,0),CYL(.007,.007,.07,0x6b4f2a,0,.06,0),SPH(.085,0x3a7ca5,0,.16,0),rot(TOR(.095,.006,GOLD,0,.16,0,GM),0,0,.4));
+    [[.6,.4,.5],[-.5,.6,-.4],[.2,-.3,.8]].forEach(([x,y,z])=>{const v=new C.Vector3(x,y,z).normalize().multiplyScalar(.075);g.add(sc(SPH(.035,0x6a8a4a,v.x,.16+v.y,v.z),1,1,.6))});return g},
+  squadra:()=>grp(BOX(.26,.012,.035,0xb08a50,0,.006,0),BOX(.035,.012,.2,0xb08a50,-.1125,.006,.0825)),
+  quill:()=>grp(rot(CYL(.004,.007,.26,0xf5f0e0,0,.012,0),0,0,PI/2),sc(SPH(.05,0xfafafa,.04,.016,0),2.2,.15,.6),rot(CONE(.005,.03,0x222222,-.14,.012,0),0,0,PI/2)),
+  dividers:()=>grp(SPH(.018,GOLD,0,.2,0,GM),rot(CYL(.006,.004,.2,0x9a9a9a,-.035,.1,0,{m:.8}),0,0,-.35),rot(CYL(.006,.004,.2,0x9a9a9a,.035,.1,0,{m:.8}),0,0,.35)),
+  violin:()=>grp(sc(SPH(.075,0x8a3b12,0,.023,.04,{r:.35}),.85,.3,1.25),BOX(.028,.02,.14,0x2a1a0a,0,.03,-.12),sc(SPH(.02,0x5a2a0a,0,.03,-.2),.8,.8,1.2),BOX(.012,.005,.12,0x111111,0,.05,.03)),
+  skull:()=>grp(sc(SPH(.085,0xe8e0cc,0,.1,0),1,.95,1.15),BOX(.09,.045,.08,0xe0d8c2,0,.035,.04),SPH(.022,0x2a2a2a,-.032,.11,.085),SPH(.022,0x2a2a2a,.032,.11,.085),CONE(.012,.025,0x2a2a2a,0,.075,.095)),
+  grapes:()=>{const g=grp(rot(CYL(.006,.006,.08,0x5a4a2a,0,.03,-.12),PI/2,0,0));
+    for(let r=0;r<5;r++){const n=5-r;for(let j=0;j<n;j++){g.add(SPH(.026,0x4b2a5c,(j-(n-1)/2)*.046,.026,-.08+r*.042,{r:.3}));if(j<n-1&&r<4)g.add(SPH(.024,0x5a3470,(j-(n-2)/2)*.046,.06,-.06+r*.042,{r:.3}))}}return g},
+  mirror:(c=GOLD)=>grp(TOR(.1,.022,c,0,.022,0,GM).rotateX(PI/2),CYL(.1,.1,.008,0xd8e8f0,0,.02,0,{m:1,r:.05}),BOX(.035,.02,.12,c,0,.01,.16,GM)),
+  clock:()=>grp(BOX(.17,.24,.1,0x5a3418,0,.12,0),rot(CYL(.06,.06,.01,0xf4ecd8,0,.15,.052),PI/2,0,0),TOR(.06,.008,GOLD,0,.15,.056,GM),
+    BOX(.004,.045,.004,0x111111,0,.165,.06),BOX(.035,.004,.004,0x111111,.015,.15,.06),BOX(.19,.02,.12,GOLD,0,.25,0,GM)),
+  palette:()=>{const g=grp(sc(CYL(.14,.14,.012,0xc8a06a,0,.006,0),1,1,.75),CYL(.018,.018,.014,0x6b4a2a,-.08,.006,.02));
+    [0xd03030,0x3050c0,0xf0d040,0x30a050,0xffffff,0x8040a0].forEach((c,i)=>{const a=-1.2+i*.55;g.add(sc(SPH(.02,c,Math.cos(a)*.09,.014,Math.sin(a)*.065),1,.4,1))});return g},
+  brush:()=>grp(rot(CYL(.007,.009,.2,0x8b2a1a,-.03,.01,0),0,0,PI/2),rot(CYL(.01,.01,.035,0xcccccc,.085,.01,0,{m:.8}),0,0,PI/2),rot(CONE(.01,.04,0x2a5aa0,.12,.01,0),0,0,-PI/2)),
+  hat:()=>grp(CYL(.14,.14,.01,0xe6c66a,0,.005,0),CYL(.07,.075,.08,0xe6c66a,0,.05,0),CYL(.076,.076,.022,0x2a4a8a,0,.025,0)),
+  sailboat:()=>grp(sc(SPH(.08,0x8b5a2b,0,.035,0),1.75,.45,.55),CYL(.005,.005,.2,0x5a3a1a,0,.13,0),sc(CONE(.06,.17,0xf8f4ea,.03,.14,0,{},3),1,1,.15)),
+  waterLily:()=>{const g=grp(CYL(.12,.12,.008,0x4f8a3e,0,.004,0),SPH(.022,0xf0d040,0,.03,0));
+    for(let i=0;i<8;i++){const a=i/8*PI*2,p=CONE(.022,.07,0xf5c6d6,Math.cos(a)*.035,.035,Math.sin(a)*.035);p.rotation.set(Math.sin(a)*.9,0,-Math.cos(a)*.9);g.add(p)}return g},
+  smallVase:(c=0xe8e0d0)=>LATHE([[0,0],[.05,0],[.08,.06],[.08,.14],[.04,.2],[.05,.24],[0,.24]],c),
+  oilLamp:(c=0xb5643a)=>grp(sc(SPH(.06,c,0,.03,0),1.2,.5,1),rot(CYL(.015,.02,.06,c,.07,.03,0),0,0,PI/2),flame(.1,.05,0)),
+  amphoraSmall:(c=0xc4703a)=>grp(LATHE([[0,0],[.03,0],[.07,.07],[.075,.14],[.035,.2],[.03,.24],[.04,.25],[0,.25]],c),CYL(.076,.076,.04,0x1a1a1a,0,.12,0)),
+  laurel:()=>{const g=grp(TOR(.1,.008,0x4a6a2a,0,.01,0).rotateX(PI/2));
+    for(let i=0;i<14;i++){const a=i/14*PI*2,l=sc(SPH(.022,0x5a7a3a,Math.cos(a)*.1,.015,Math.sin(a)*.1),1.6,.3,.7);l.rotation.y=-a;g.add(l)}return g},
+  cross:()=>grp(BOX(.12,.02,.08,GOLD,0,.01,0,GM),BOX(.025,.22,.025,GOLD,0,.13,0,GM),BOX(.12,.025,.025,GOLD,0,.18,0,GM),SPH(.015,0xb02030,0,.18,.015)),
+  bell:()=>grp(LATHE([[0,0],[.08,0],[.07,.03],[.05,.12],[.03,.15],[0,.15]],0xb08a3a,GM),CYL(.008,.008,.06,0x5a3a1a,0,.18,0),SPH(.015,0x5a3a1a,0,.22,0)),
+  hourglass:()=>{const w=0x6b4a2a,g=grp(CYL(.07,.07,.015,w,0,.0075,0),CYL(.07,.07,.015,w,0,.2275,0),CONE(.05,.1,0xe0c890,0,.065,0),rot(CONE(.05,.1,0xd8e6e8,0,.165,0),PI,0,0));
+    for(let i=0;i<3;i++){const a=i/3*PI*2;g.add(CYL(.006,.006,.21,w,Math.cos(a)*.06,.117,Math.sin(a)*.06))}return g},
+  inkwell:()=>grp(CYL(.045,.05,.05,0x1a1a2a,0,.025,0,{r:.2,m:.3}),CYL(.02,.02,.015,0x1a1a2a,0,.057,0),rot(CYL(.004,.006,.2,0xf5f0e0,.03,.12,0),0,0,-.4)),
+  paintTube:()=>grp(rot(CYL(.022,.022,.12,0xe8e8e8,0,.022,0,{m:.6,r:.3}),0,0,PI/2),rot(CONE(.022,.025,0xe8e8e8,.072,.022,0,{m:.6}),0,0,-PI/2),
+    rot(CYL(.01,.01,.02,0x222222,.092,.022,0),0,0,PI/2),rot(CYL(.0225,.0225,.05,0x2a5ad0,-.01,.022,0),0,0,PI/2)),
+  parasol:()=>grp(CYL(.005,.005,.26,0x5a3a1a,0,.13,0),CONE(.15,.08,0xf0c0d0,0,.24,0),CYL(.03,.03,.01,0x5a3a1a,0,.005,0)),
+  teacup:()=>grp(CYL(.075,.075,.008,0xf8f6f0,0,.004,0),LATHE([[0,.008],[.035,.008],[.05,.05],[.055,.068]],0xf8f6f0),TOR(.018,.005,0xf8f6f0,.058,.04,0),TOR(.053,.004,0x3a5aa0,0,.06,0).rotateX(PI/2)),
+
+  // ----- rewards (museum) -----
+  obelisk:()=>grp(BOX(.6,.18,.6,0x6a5a50,0,.09,0),rot(mesh(new C.CylinderGeometry(.13,.2,1.5,4),M(0x9a6e5e,{map:tex('hiero',[1,2])}),0,.93,0),0,PI/4,0),rot(CONE(.13,.2,GOLD,0,1.78,0,GM,4),0,PI/4,0)),
+  ionic:()=>{const w=0xf2eee6;return grp(BOX(.62,.12,.62,w,0,.06,0),CYL(.2,.23,1.5,w,0,.87,0,{},16),CYL(.22,.22,.05,GOLD,0,1.6,0,GM),BOX(.5,.08,.34,w,0,1.66,0),
+    TOR(.07,.025,w,-.27,1.66,.0),TOR(.07,.025,w,.27,1.66,0),BOX(.62,.06,.62,w,0,1.73,0))},
+  stainedGlass:()=>{const s=0x5a5a60,g=grp(BOX(.12,1.6,.12,s,-.5,.8,0),BOX(.12,1.6,.12,s,.5,.8,0),BOX(1.2,.14,.32,s,0,.07,0),TOR(.5,.06,s,0,1.6,0,{},PI));
+    const win=B.window(.88,1.9);win.position.y=1.15;g.add(win);return g},
+  armillary:()=>grp(CYL(.25,.3,.12,0x5a3a1a,0,.06,0),CYL(.03,.03,.9,GOLD,0,.55,0,GM),SPH(.07,0x3a7ca5,0,1.25,0),TOR(.35,.015,GOLD,0,1.25,0,GM),
+    rot(TOR(.35,.015,GOLD,0,1.25,0,GM),PI/2,0,0),rot(TOR(.33,.012,GOLD,0,1.25,0,GM),PI/2,0,.45),rot(TOR(.3,.012,GOLD,0,1.25,0,GM),0,PI/2,0),rot(CYL(.008,.008,.9,GOLD,0,1.25,0,GM),0,0,.45)),
+  candelabrum:()=>{const g=grp(LATHE([[0,0],[.3,0],[.25,.08],[.08,.15],[.06,.3]],GOLD,GM),CYL(.04,.05,1.1,GOLD,0,.8,0,GM),rot(TOR(.28,.025,GOLD,0,1.4,0,GM,PI),0,0,PI));
+    [-.28,0,.28].forEach(x=>{g.add(CYL(.05,.04,.04,GOLD,x,1.42,0,GM),CYL(.03,.03,.22,0xf3ead2,x,1.55,0),flame(x,1.7,0,2.2))});
+    const l=new C.PointLight(0xffb060,.9,5);l.position.set(0,1.8,0);g.add(l);return g},
+  easelReward:()=>B.easel('canvasDabs',1.15),
+};
+const FLOOR_HIDERS = new Set(['sarcophagus','bigVase','barrel','crate','drum']);
+
+/* ---------------- LEVEL DATA ---------------- */
+const LEVELS = [
+  { id:'egitto', name:'Antico Egitto', era:'3000 – 30 a.C.', icon:'🐈',
+    wall:['hiero'], floor:['sand'], ceil:0x3a2a18, light:0xffd9a0, wood:0x7a5230, col:[0xd8c08a,0x2f6a8a], stone:0xd8c8a0,
+    rug:{a:'#a33d2a',b:'#d9a23a'}, art:null,
+    hiders:[['sarcophagus',0xc9a54a],['bigVase',0xb5643a],['chest',0x7a4a24],['basket',0xc8a060],['cloth',0xe8dcc0],['jar',0xa0522d],['basket',0x9b7a4a]],
+    targets:[['scarab','Scarabeo sacro','🪲'],['papyrus','Rotolo di papiro','📜'],['canopic','Vaso canopo','🏺'],['cat','Statuetta di gatto','🐈'],['ankh','Amuleto ankh','☥']],
+    distractors:[['smallVase','Vaso di alabastro'],['oilLamp','Lucerna in terracotta'],['mirror','Specchio di bronzo',0x9a6a3a]],
+    tableDecor:[['bowl',0xb5643a],['plantSmall'],['tray',GOLD],['bustSmall',0xd8c8a0]], floorDecor:[['palm'],['statue',0xd8c8a0],['urnDeco',0xb5643a]],
+    reward:{k:'obelisk',name:'Obelisco di granito',e:'🔺',desc:'Un monolite inciso di geroglifici, simbolo del raggio di sole.'},
+    card:{title:"L'arte dell'eternità", text:"L'arte egizia nasce al servizio dell'aldilà: tombe, statue e pitture dovevano garantire al defunto una vita eterna. Le figure seguono la regola della frontalità e della proporzione canonica, con il busto di fronte e volto e gambe di profilo, per mostrare ogni parte del corpo nella sua forma più riconoscibile.", curiosity:"I gatti erano associati alla dea Bastet e venivano talvolta mummificati come offerte votive."}},
+  { id:'grecia', name:'Grecia Classica', era:'V – IV sec. a.C.', icon:'🏛️',
+    wall:['marble'], floor:['checker',{a:'#e8e2d6',b:'#3a4a6a'}], ceil:0xe8e4dc, light:0xfff4e0, wood:0x6b4a2a, col:[0xf2eee6,0xc9a24a], stone:0xf0ece4,
+    rug:{a:'#2f4f7a',b:'#e8e2d6'}, art:null,
+    hiders:[['drum',0xece6da],['bigVase',0xc4703a],['chest',0x6b4a2a],['cloth',0x2f4f7a],['jar',0xb5643a],['basket',0xb89a6a],['cloth',0x8a2a2a]],
+    targets:[['owl','Civetta di Atena','🦉'],['olive',"Ramo d'ulivo",'🫒'],['mask','Maschera teatrale','🎭'],['lyre','Lira','🪕'],['drachma',"Dracme d'argento",'🪙']],
+    distractors:[['amphoraSmall','Anfora a figure nere'],['oilLamp','Lucerna a olio',0xc4703a],['laurel',"Corona d'alloro"]],
+    tableDecor:[['bowl',0xc4703a],['bustSmall',0xf0ece4],['plantSmall'],['tray',0xc0c0c0]], floorDecor:[['statue',0xf0ece4],['plant'],['urnDeco',0xc4703a]],
+    reward:{k:'ionic',name:'Colonna ionica',e:'🏛️',desc:'Una colonna con le eleganti volute del capitello ionico.'},
+    card:{title:"La misura e l'armonia", text:"I Greci cercano la bellezza ideale attraverso la proporzione matematica. Lo scultore Policleto codifica un 'canone' di misure perfette e introduce la ponderazione, la postura in cui il peso grava su una gamba sola e il corpo prende vita. L'architettura dei templi segue ordini precisi: dorico, ionico e corinzio.", curiosity:"Le statue greche oggi bianche erano in origine dipinte con colori vivaci."}},
+  { id:'gotico', name:'Medioevo Gotico', era:'XII – XIV sec.', icon:'⛪',
+    wall:['stone'], floor:['checker',{a:'#5a5450',b:'#3a3532'}], ceil:0x2a2622, light:0xffcf8a, wood:0x4a3020, col:[0x8a8580,0x5a5550], stone:0x9a958e,
+    rug:{a:'#5a1a24',b:'#c9a24a'}, art:'glass',
+    hiders:[['barrel',0x6b4a2a],['crate',0x7a5a3a],['chest',0x4a2e1a],['books',0x5a1e1e],['cloth',0x6a1a2a],['basket',0x8a6a4a],['chest',0x3a3a3a]],
+    targets:[['codex','Codice miniato','📖'],['key','Chiave di ferro','🗝️'],['candle','Candela votiva','🕯️'],['chalice',"Calice d'oro",'🏆'],['shield','Scudo araldico','🛡️']],
+    distractors:[['cross','Croce reliquiario'],['bell','Campanella liturgica'],['hourglass','Clessidra']],
+    tableDecor:[['tray',0x9a9a9a],['bowl',0x6b4a2a],['bustSmall',0x9a958e]], floorDecor:[['torch'],['statue',0x9a958e],['torch']],
+    reward:{k:'stainedGlass',name:'Vetrata gotica',e:'🪟',desc:'Una finestra a sesto acuto di vetri colorati che filtra la luce.'},
+    card:{title:"Verso la luce", text:"Le cattedrali gotiche si slanciano verso il cielo grazie ad archi a sesto acuto, volte a crociera e archi rampanti, che permettono di aprire grandi vetrate colorate. La luce che attraversa i vetri diventa simbolo del divino. Nei monasteri, i codici miniati uniscono scrittura e pittura con pigmenti preziosi e foglia d'oro.", curiosity:"Alcuni pigmenti blu delle miniature erano ricavati dal lapislazzuli, più costoso dell'oro."}},
+  { id:'rinascimento', name:'Rinascimento', era:'XV – XVI sec.', icon:'📐',
+    wall:['fresco'], floor:['wood',{c:'#9a6a3a'}], ceil:0xe6d6b8, light:0xfff0d0, wood:0x8a5a2a, col:[0xe8dcc6,0x8a3a2a], stone:0xe8dcc6,
+    rug:{a:'#2a4a3a',b:'#c9a24a'}, art:'frescoArt',
+    hiders:[['crate',0x9a7a4a],['bigVase',0x3a5a8a],['chest',0x8a5a2a],['books',0x7a3a1a],['cloth',0x2a5a3a],['jar',0x3a6aa0],['books',0x2a3a6a]],
+    targets:[['bussola','Bussola','🧭'],['globe','Mappamondo','🌍'],['squadra','Squadra prospettica','📐'],['quill',"Penna d'oca",'🪶'],['dividers','Compasso da disegno','✒️']],
+    distractors:[['codex','Trattato di anatomia',0x6a4a2a],['hourglass','Clessidra'],['inkwell','Calamaio']],
+    tableDecor:[['bustSmall',0xe8dcc6],['bowl',0x3a6aa0],['plantSmall'],['tray',GOLD]], floorDecor:[['easel','frescoArt'],['plant'],['statue',0xe8dcc6]],
+    reward:{k:'armillary',name:'Sfera armillare',e:'🌐',desc:'Un modello del cosmo fatto di anelli dorati intrecciati.'},
+    card:{title:"L'uomo al centro", text:"Firenze diventa la culla di una rinascita che guarda all'antichità classica. Brunelleschi definisce le regole della prospettiva lineare, che consente di rappresentare lo spazio in modo razionale su una superficie piana. Artisti come Leonardo uniscono arte e scienza, studiando anatomia, ottica e natura.", curiosity:"I taccuini di Leonardo sono scritti in gran parte con grafia speculare, da destra a sinistra."}},
+  { id:'barocco', name:'Barocco', era:'XVII sec.', icon:'🎻',
+    wall:['damask'], floor:['wood',{c:'#4a2a18'}], ceil:0x2a1610, light:0xffc880, wood:0x4a2414, col:[0x3a2a2a,0xd4a83a], stone:0xd8d0c0,
+    rug:{a:'#5a1018',b:'#d4a83a'}, art:'chiaro',
+    hiders:[['drum',0x3a2a2a],['bigVase',0x2a3a5a],['chest',0x5a2a1a],['cloth',0x6a0f1a],['books',0x3a1a10],['basket',0x8a6a3a],['jar',0x1f3a5a]],
+    targets:[['violin','Violino','🎻'],['skull','Teschio della vanitas','💀'],['grapes',"Grappolo d'uva",'🍇'],['mirror','Specchio dorato','🪞'],['clock','Orologio da tavolo','🕰️']],
+    distractors:[['candle','Candela'],['chalice','Coppa di vino',0xc0c0c0],['codex','Spartito rilegato',0x2a2a4a]],
+    tableDecor:[['tray',GOLD],['bowl',0xc0c0c0],['flowerVase']], floorDecor:[['candelabraStand'],['statue',0xd8d0c0],['plant']],
+    reward:{k:'candelabrum',name:'Candelabro dorato',e:'🕯️',desc:'Un candelabro a tre bracci che accende di luce calda la sala.'},
+    card:{title:"Il teatro delle emozioni", text:"Il Barocco vuole stupire e coinvolgere: forme in movimento, contrasti drammatici di luce e ombra, spazi scenografici. Caravaggio rivoluziona la pittura con il chiaroscuro, facendo emergere le figure dal buio. Nelle nature morte, frutti, strumenti e teschi ricordano la fragilità della vita: è il tema della vanitas.", curiosity:"Gian Lorenzo Bernini progettò il colonnato di piazza San Pietro come un abbraccio rivolto ai fedeli."}},
+  { id:'impressionismo', name:'Impressionismo', era:'1860 – 1890', icon:'🎨',
+    wall:['dabs'], floor:['wood',{c:'#b08a5a'}], ceil:0xf0f0ea, light:0xfffaf0, wood:0xa07a4a, col:[0xf4f2ea,0x6aa0c0], stone:0xf4f2ea,
+    rug:{a:'#6aa0c0',b:'#f4f2ea'}, art:'canvasDabs',
+    hiders:[['crate',0xb89a6a],['barrel',0x8a6a4a],['basket',0xd8b070],['cloth',0xf2f2ea],['chest',0x6a8aa0],['jar',0x6aa0c0],['books',0x4a6a8a]],
+    targets:[['palette','Tavolozza','🎨'],['brush','Pennello','🖌️'],['hat','Cappello di paglia','👒'],['sailboat','Modellino di barca a vela','⛵'],['waterLily','Ninfea','🪷']],
+    distractors:[['paintTube','Tubetto di colore'],['parasol','Ombrellino'],['teacup','Tazza da tè']],
+    tableDecor:[['flowerVase'],['bowl',0xf8f6f0],['plantSmall'],['tray',0xc0c0c0]], floorDecor:[['easel','canvasDabs'],['flowerPot'],['plant']],
+    reward:{k:'easelReward',name:'Cavalletto en plein air',e:'🖼️',desc:"Un cavalletto con una tela dipinta all'aria aperta."},
+    card:{title:"Dipingere la luce", text:"Gli Impressionisti escono dagli atelier per dipingere all'aria aperta, catturando l'attimo fugace: la luce che cambia, i riflessi sull'acqua, la vita moderna. I tubetti di colore in metallo, appena inventati, rendono possibile lavorare en plein air. Le pennellate rapide e i colori puri si fondono nell'occhio dell'osservatore.", curiosity:"Il nome del movimento nacque da un critico che usò il titolo di un quadro di Monet per prenderli in giro."}}
+];
+
+/* ---------------- ROOM LAYOUT ---------------- */
+const HALF=6, WALL_H=4.2, TABLE_Y=.9;
+const TABLES=[{x:-3.6,z:-3,w:1.7,d:.85,s:[-.48,.48]},{x:3.6,z:-3,w:1.7,d:.85,s:[-.48,.48]},{x:-3.6,z:3,w:1.7,d:.85,s:[-.48,.48]},
+              {x:3.6,z:3,w:1.7,d:.85,s:[-.48,.48]},{x:0,z:-4.9,w:2.8,d:.85,s:[-.9,0,.9]}];
+const TABLE_SLOTS=[].concat(...TABLES.map(t=>t.s.map(o=>({x:t.x+o,z:t.z}))));
+const FLOOR_SLOTS=[{x:-4.6,z:-.95},{x:-4.6,z:.95},{x:4.6,z:-.95},{x:4.6,z:.95},{x:-1.3,z:4.6},{x:1.3,z:4.6},{x:-2.9,z:-4.6},{x:2.9,z:-4.6}];
+
+function buildShell(scene,o){
+  const floor=mesh(new C.PlaneGeometry(HALF*2,HALF*2),M(0xffffff,{map:tex(o.floor[0],[4,4],o.floor[1]||{}),r:.8}));floor.rotation.x=-PI/2;scene.add(floor);
+  const wm=M(0xffffff,{map:tex(o.wall[0],[3,1],o.wall[1]||{}),r:.9});
+  [[0,-HALF,0],[0,HALF,PI],[-HALF,0,PI/2],[HALF,0,-PI/2]].forEach(([x,z,ry])=>{const w=mesh(new C.PlaneGeometry(HALF*2,WALL_H),wm,x,WALL_H/2,z);w.rotation.y=ry;scene.add(w)});
+  const ceil=mesh(new C.PlaneGeometry(HALF*2,HALF*2),M(o.ceil),0,WALL_H,0);ceil.rotation.x=PI/2;scene.add(ceil);
+  [[0,-HALF+.04,0],[0,HALF-.04,0],[-HALF+.04,0,1],[HALF-.04,0,1]].forEach(([x,z,r])=>{const b=BOX(HALF*2,.18,.08,shade(o.col[0],.7),x,.09,z);b.rotation.y=r?PI/2:0;scene.add(b)});
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>{const c=B.column(WALL_H,o.col[0],o.col[1]);c.position.set(sx*(HALF-.45),0,sz*(HALF-.45));scene.add(c)});
+  scene.add(new C.AmbientLight(0xffffff,.42));
+  scene.add(new C.HemisphereLight(0xfff6e8,0x3a2a1a,.5));
+  const p=new C.PointLight(o.light,1.1,22,1.4);p.position.set(0,WALL_H-.4,0);scene.add(p);
+  [[-3.5,-3],[3.5,-3],[-3.5,3],[3.5,3]].forEach(([x,z])=>{const l=new C.PointLight(o.light,.45,9,1.6);l.position.set(x,3.2,z);scene.add(l)});
+}
+
+function buildRoom(L){
+  const scene=new C.Scene(); scene.background=new C.Color(0x111111);
+  buildShell(scene,L);
+  const rug=mesh(new C.PlaneGeometry(3.2,3.2),M(0xffffff,{map:tex('rug',[1,1],L.rug),r:.95}),0,.01,0);rug.rotation.x=-PI/2;scene.add(rug);
+  TABLES.forEach(t=>{const tb=B.table(t.w,t.d,L.wood);tb.position.set(t.x,0,t.z);scene.add(tb)});
+  // wall art
+  if(L.art){
+    const spots=[[-2.6,-HALF+.03,0],[2.6,-HALF+.03,0],[-2.6,HALF-.03,PI],[2.6,HALF-.03,PI],[-HALF+.03,-2.6,PI/2],[-HALF+.03,2.6,PI/2],[HALF-.03,-2.6,-PI/2],[HALF-.03,2.6,-PI/2]];
+    spots.forEach(([a,b,ry])=>{const vertical=Math.abs(Math.abs(ry)-PI/2)<.01;const x=vertical?a:a,z=vertical?b:b;
+      let art; if(L.art==='glass'){art=B.window(1.2,2.3);art.position.set(x,2.3,z)} else {art=B.frame(L.art,1.4,1.0,GOLD);art.position.set(x,2.3,z)}
+      art.rotation.y=ry; const n=new C.Vector3(0,0,1).applyAxisAngle(new C.Vector3(0,1,0),ry); art.position.addScaledVector(n,.02); scene.add(art)});
+  }
+  const interact=[], targets=[];
+  const tS=shuffle(TABLE_SLOTS.slice()), fS=shuffle(FLOOR_SLOTS.slice());
+  const dist=shuffle(L.distractors.slice());
+  const make=(spec,role,name)=>{const g=B[spec[0]](spec[2]!==undefined?spec[2]:undefined);g.userData.role=role;g.userData.name=name;g.rotation.y=R()*PI*2;return g};
+  const contents=shuffle([...L.targets.map(t=>({role:'target',spec:[t[0]],name:t[1],emoji:t[2]})),{role:'distractor',spec:[dist[0][0],0,dist[0][2]],name:dist[0][1]},null]);
+  L.hiders.forEach((h,k)=>{
+    const floor=FLOOR_HIDERS.has(h[0]), s=floor?fS.pop():tS.pop(), y=floor?0:TABLE_Y;
+    const u=new C.Vector2(s.x,s.z).normalize();
+    const body=B[h[0]](h[1]); let root;
+    if(h[0]==='chest'){
+      body.rotation.y=Math.atan2(u.x,u.y); body.position.set(s.x,y,s.z); root=body;
+      Object.assign(root.userData,{role:'hider',mode:'lid'});
+    } else {
+      body.rotation.y=Math.atan2(u.x,u.y)+(h[0]==='sarcophagus'?PI/2:rnd(-.3,.3));
+      body.updateMatrixWorld(true); const size=new C.Box3().setFromObject(body).getSize(new C.Vector3());
+      const half=Math.abs(u.x)*size.x/2+Math.abs(u.y)*size.z/2;
+      root=new C.Group(); root.position.set(s.x+u.x*half,y,s.z+u.y*half); body.position.set(-u.x*half,0,-u.y*half); root.add(body);
+      root.userData={role:'hider',mode:'tip',axis:new C.Vector3(u.y,0,-u.x)};
+    }
+    root.userData.open=false; root.userData.prog=0; root.userData.kind=h[0];
+    const c=contents[k];
+    if(c){ const it=make(c.spec,c.role,c.name); it.userData.emoji=c.emoji;
+      const iy=y+(h[0]==='chest'?.03:0); it.position.set(s.x,iy,s.z); it.userData.baseY=iy; it.userData.hider=root; root.userData.content=it;
+      scene.add(it); interact.push(it); if(c.role==='target')targets.push(it); }
+    scene.add(root); interact.push(root);
+  });
+  // visible distractors
+  dist.slice(1).forEach(d=>{const s=tS.pop();const it=make([d[0],0,d[2]],'distractor',d[1]);it.position.set(s.x,TABLE_Y,s.z);it.userData.baseY=TABLE_Y;scene.add(it);interact.push(it)});
+  tS.forEach((s,i)=>{const d=L.tableDecor[i%L.tableDecor.length];const g=B[d[0]](d[1]);g.position.set(s.x,TABLE_Y,s.z);g.rotation.y=R()*PI*2;scene.add(g)});
+  fS.forEach((s,i)=>{const d=L.floorDecor[i%L.floorDecor.length];const g=B[d[0]](d[1]);g.position.set(s.x,0,s.z);g.rotation.y=Math.atan2(-s.x,-s.z);scene.add(g)});
+  const obst=TABLES.map(t=>[t.x-t.w/2,t.x+t.w/2,t.z-t.d/2,t.z+t.d/2]).concat(FLOOR_SLOTS.map(s=>[s.x-.45,s.x+.45,s.z-.45,s.z+.45]));
+  return {scene,interact,targets,obst};
+}
+
+const SLOT_COUNT=6;
+function slotPos(i){const a=i/SLOT_COUNT*PI*2+PI/SLOT_COUNT;return new C.Vector3(Math.sin(a)*3.9,0,-Math.cos(a)*3.9)}
+function buildMuseum(placed){
+  const scene=new C.Scene(); scene.background=new C.Color(0x111111);
+  buildShell(scene,{floor:['wood',{c:'#6a4426'}],wall:['marble',{c:'#f1ece2'}],ceil:0xf4efe6,light:0xfff2dc,col:[0xf4f0e8,GOLD]});
+  const rug=mesh(new C.PlaneGeometry(3,3),M(0xffffff,{map:tex('rug',[1,1],{a:'#7a2e2e',b:'#c9a24a'}),r:.95}),0,.01,0);rug.rotation.x=-PI/2;scene.add(rug);
+  const interact=[], spin=[];
+  for(let i=0;i<SLOT_COUNT;i++){
+    const p=slotPos(i), g=grp(CYL(.6,.66,.3,0xf3efe6,0,.15,0,{r:.4}),TOR(.6,.025,GOLD,0,.3,0,GM).rotateX(PI/2),TOR(.66,.025,GOLD,0,.02,0,GM).rotateX(PI/2));
+    g.position.copy(p); g.userData={role:'slot',idx:i};
+    const id=placed[i], L=LEVELS.find(l=>l.id===id);
+    if(L){const r=B[L.reward.k]();r.position.y=.3;r.rotation.y=Math.atan2(-p.x,-p.z);g.add(r);if(L.reward.k!=='stainedGlass'&&L.reward.k!=='easelReward')spin.push(r)}
+    else g.add(sc(SPH(.08,GOLD,0,.45,0,{m:.8,r:.3,e:0x553300}),1));
+    const sl=new C.SpotLight(0xfff2d8,1.1,9,.45,.5,1.2);sl.position.set(p.x*.75,WALL_H-.2,p.z*.75);sl.target=g;scene.add(sl);
+    scene.add(g); interact.push(g);
+  }
+  // decorative frames
+  [[-2.4,-HALF+.05,0],[2.4,-HALF+.05,0],[-2.4,HALF-.05,PI],[2.4,HALF-.05,PI],[-HALF+.05,0,PI/2],[HALF-.05,0,-PI/2]].forEach(([x,z,ry],i)=>{
+    const f=B.frame(['canvasDabs','chiaro','frescoArt'][i%3],1.3,.95,GOLD);f.position.set(x,2.4,z);f.rotation.y=ry;scene.add(f)});
+  const obst=[];for(let i=0;i<SLOT_COUNT;i++){const p=slotPos(i);obst.push([p.x-.7,p.x+.7,p.z-.7,p.z+.7])}
+  return {scene,interact,spin,obst};
+}
+// @@CORE-END
+
+/* ================= RUNTIME ================= */
+const TIME_LIMIT=150, PENALTY=10, HINT_COST=15, NEED3={errors:2,frac:.3};
+const SAVE_KEY='coc3d-progress';
+let progress=load();
+function load(){try{const p=JSON.parse(localStorage.getItem(SAVE_KEY));if(p&&p.passed)return Object.assign({best:{},placed:Array(SLOT_COUNT).fill(null)},p)}catch(e){}
+  return {passed:{},best:{},placed:Array(SLOT_COUNT).fill(null)}}
+function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(progress))}catch(e){}}
+const isPassed=id=>!!progress.passed[id];
+const isUnlocked=i=>i===0||isPassed(LEVELS[i-1].id);
+const starStr=n=>'★'.repeat(n)+'☆'.repeat(3-n);
+
+let renderer,camera,raycaster,clock,world=null,mode=null,game=null,tweens=[];
+const view={yaw:0,pitch:-.12,ty:0,tp:-.12,fov:65,tf:65};
+let drag=null,hovered=null,locked=false,lockFailed=false;
+const keys=new Set();
+const FINE=!!(window.matchMedia&&matchMedia('(pointer:fine)').matches);
+const canLock=()=>FINE&&!lockFailed&&renderer&&'requestPointerLock' in renderer.domElement;
+const modalOpen=()=>document.getElementById('modal').classList.contains('open');
+const EYE=1.6, MOVE_KEYS=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'];
+
+function requestLock(){
+  if(!canLock())return;
+  try{const p=renderer.domElement.requestPointerLock();if(p&&p.catch)p.catch(()=>{lockFailed=true;updateTips()})}catch(e){lockFailed=true;updateTips()}
+}
+function releaseLock(){if(document.pointerLockElement&&document.exitPointerLock)document.exitPointerLock()}
+
+function init3D(){
+  if(renderer) return true;
+  if(typeof THREE==='undefined'){alert('Impossibile caricare il motore 3D. Controlla la connessione a Internet e ricarica la pagina.');return false}
+  renderer=new C.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.outputEncoding=C.sRGBEncoding; renderer.toneMapping=C.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05;
+  camera=new C.PerspectiveCamera(65,1,.05,60); camera.rotation.order='YXZ'; camera.position.set(0,EYE,0);
+  raycaster=new C.Raycaster(); clock=new C.Clock();
+  const el=renderer.domElement;
+  el.addEventListener('pointerdown',e=>{
+    if(locked){if(e.button===0)act(pickCenter());return}
+    if(canLock()&&e.pointerType==='mouse'){ if(!(mode==='room'&&game&&game.paused))requestLock(); return }
+    drag={x:e.clientX,y:e.clientY,moved:0,id:e.pointerId};el.setPointerCapture(e.pointerId)});
+  el.addEventListener('pointermove',e=>{
+    if(locked){const k=.0022*(view.fov/65);view.ty-=e.movementX*k;view.yaw=view.ty;
+      view.tp=Math.max(-1.35,Math.min(1.2,view.tp-e.movementY*k));view.pitch=view.tp;return}
+    if(drag&&drag.id===e.pointerId){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;drag.moved+=Math.abs(dx)+Math.abs(dy);
+      const k=.0045*(view.fov/65);view.ty+=dx*k;view.tp=Math.max(-1.25,Math.min(1.1,view.tp+dy*k));}
+    else if(e.pointerType==='mouse') setHover(pick(e));
+  });
+  el.addEventListener('pointerup',e=>{if(!locked&&drag&&drag.moved<8)act(pick(e));drag=null});
+  el.addEventListener('pointercancel',()=>drag=null);
+  el.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY>0?5:-5)},{passive:false});
+  document.addEventListener('pointerlockchange',()=>{
+    locked=document.pointerLockElement===el; document.body.classList.toggle('locked',locked);
+    if(!locked){setHover(null);keys.clear();if(mode==='room'&&game&&!game.over&&!game.paused&&!modalOpen())pauseRoom()}
+    updateTips();
+  });
+  document.addEventListener('pointerlockerror',()=>{lockFailed=true;updateTips()});
+  window.addEventListener('keydown',e=>{
+    if(!mode||modalOpen())return;
+    if(MOVE_KEYS.includes(e.code))e.preventDefault();
+    keys.add(e.code);
+    if(e.repeat)return;
+    if(e.code==='KeyE'||e.code==='Enter'){ act(locked?pickCenter():hovered) }
+    else if(e.code==='KeyH'&&mode==='room')useHint();
+    else if(e.code==='KeyP'&&mode==='room'&&game&&!game.over){ if(game.paused)resumeRoom(); else {releaseLock();pauseRoom()} }
+    else if(e.code==='Equal'||e.code==='NumpadAdd')zoom(-8);
+    else if(e.code==='Minus'||e.code==='NumpadSubtract')zoom(8);
+  });
+  window.addEventListener('keyup',e=>keys.delete(e.code));
+  window.addEventListener('blur',()=>keys.clear());
+  window.addEventListener('resize',resize);
+  requestAnimationFrame(loop);
+  return true;
+}
+function zoom(d){view.tf=Math.max(30,Math.min(75,view.tf+d))}
+function resize(){if(!renderer||!renderer.domElement.parentElement)return;const p=renderer.domElement.parentElement;const w=p.clientWidth,h=p.clientHeight;
+  if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+function mount(stageId){document.getElementById(stageId).appendChild(renderer.domElement);requestAnimationFrame(resize);updateTips()}
+function disposeWorld(){if(!world)return;world.scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){[].concat(o.material).forEach(m=>{if(m.map)m.map.dispose();m.dispose()})}});world=null}
+
+const ease=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+function tween(dur,fn,done){tweens.push({t:0,dur,fn,done})}
+function angDiff(a,b){let d=(b-a)%(PI*2);if(d>PI)d-=PI*2;if(d<-PI)d+=PI*2;return d}
+
+/* ---- walking with collisions ---- */
+function blocked(x,z){
+  const b=HALF-.45; if(Math.abs(x)>b||Math.abs(z)>b)return true;
+  if(Math.abs(x)>HALF-1.3&&Math.abs(z)>HALF-1.3)return true; // colonne d'angolo
+  return (world.obst||[]).some(o=>x>o[0]-.3&&x<o[1]+.3&&z>o[2]-.3&&z<o[3]+.3);
+}
+function canWalk(){return !modalOpen()&&(mode==='museum'||(mode==='room'&&game&&!game.paused&&!game.over))}
+function walk(dt){
+  let f=0,s=0;
+  if(keys.has('KeyW')||keys.has('ArrowUp'))f+=1; if(keys.has('KeyS')||keys.has('ArrowDown'))f-=1;
+  if(keys.has('KeyD')||keys.has('ArrowRight'))s+=1; if(keys.has('KeyA')||keys.has('ArrowLeft'))s-=1;
+  if(!f&&!s)return;
+  const len=Math.hypot(f,s),sp=(keys.has('ShiftLeft')||keys.has('ShiftRight')?4.6:2.6)*dt/len,y=view.yaw;
+  const dx=(-Math.sin(y)*f+Math.cos(y)*s)*sp, dz=(-Math.cos(y)*f-Math.sin(y)*s)*sp, p=camera.position;
+  if(!blocked(p.x+dx,p.z))p.x+=dx; if(!blocked(p.x,p.z+dz))p.z+=dz;
+}
+
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=Math.min(clock.getDelta(),.05);
+  if(!mode||!world)return;
+  view.yaw+=angDiff(view.yaw,view.ty)*Math.min(1,dt*12);view.pitch+=(view.tp-view.pitch)*Math.min(1,dt*12);
+  view.fov+=(view.tf-view.fov)*Math.min(1,dt*8);
+  if(canWalk())walk(dt);
+  camera.rotation.y=view.yaw;camera.rotation.x=view.pitch;if(Math.abs(camera.fov-view.fov)>.01){camera.fov=view.fov;camera.updateProjectionMatrix()}
+  for(let i=tweens.length-1;i>=0;i--){const t=tweens[i];t.t+=dt;const k=Math.min(1,t.t/t.dur);t.fn(ease(k),k);if(k>=1){tweens.splice(i,1);t.done&&t.done()}}
+  if(mode==='room'&&game&&!game.over&&!game.paused){game.time-=dt;if(game.time<=0){game.time=0;updateHud();finishRoom(false)}else updateHud()}
+  if(mode==='museum'&&world.spin)world.spin.forEach(s=>s.rotation.y+=dt*.25);
+  if(locked)setHover(pickCenter());
+  renderer.render(world.scene,camera);
+}
+
+const MAX_REACH=7;
+function raypick(v){
+  raycaster.setFromCamera(v,camera);
+  const hits=raycaster.intersectObjects(world.scene.children,true);
+  for(const h of hits){let o=h.object;if(!o.visible)continue;if(h.distance>MAX_REACH)return null;while(o&&!o.userData.role)o=o.parent;return o||null}
+  return null;
+}
+function pick(e){if(!world)return null;const r=renderer.domElement.getBoundingClientRect();
+  return raypick(new C.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1))}
+function pickCenter(){return world?raypick(new C.Vector2(0,0)):null}
+function setEm(root,hex){root.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive){const mt=m.material;if(mt.userData.e0===undefined){mt.userData.e0=mt.emissive.getHex();mt.userData.ei0=mt.emissiveIntensity}
+  if(hex===null){mt.emissive.setHex(mt.userData.e0);mt.emissiveIntensity=mt.userData.ei0}else{mt.emissive.setHex(hex);mt.emissiveIntensity=1}}})}
+function usable(o){return !!o&&!o.userData.collected&&!o.userData.leaving&&!(mode==='room'&&(!game||game.over||game.paused))}
+function promptFor(o){const r=o.userData.role;
+  if(r==='hider')return o.userData.open?'Rimetti a posto':(o.userData.mode==='lid'?'Apri':'Sposta');
+  if(r==='target'||r==='distractor')return 'Raccogli';
+  if(r==='slot')return 'Scegli il pezzo da esporre';return ''}
+function setHover(o){
+  const ok=usable(o);
+  if(hovered&&hovered!==o){setEm(hovered,null);hovered=null}
+  if(ok&&o!==hovered){hovered=o;setEm(o,0x2a2008)}
+  if(renderer&&!locked)renderer.domElement.style.cursor=ok?'pointer':'grab';
+  document.querySelectorAll('.cross').forEach(c=>c.classList.toggle('on',ok));
+  const txt=ok?`<kbd>Click</kbd> / <kbd>E</kbd> ${promptFor(o)}`:'';
+  document.querySelectorAll('.prompt').forEach(p=>{if(p.innerHTML!==txt)p.innerHTML=txt});
+}
+function act(o){
+  if(!world||!usable(o))return;
+  if(mode==='museum'){if(o.userData.role==='slot'){releaseLock();openPicker(o.userData.idx)}return}
+  if(o.userData.role==='hider')toggleHider(o);
+  else if(o.userData.role==='target')collect(o);
+  else if(o.userData.role==='distractor')mistake(o);
+}
+function updateTips(){
+  const desk=FINE, lockable=desk&&!lockFailed;
+  const room=lockable
+    ?(locked?'<kbd>WASD</kbd> cammina · <kbd>Shift</kbd> corri · <kbd>Mouse</kbd> guarda · <kbd>Click</kbd>/<kbd>E</kbd> interagisci · <kbd>H</kbd> indizio · <kbd>Rotella</kbd> zoom · <kbd>Esc</kbd> pausa'
+            :'Clicca nella stanza per controllare la visuale con il mouse')
+    :desk?'<kbd>WASD</kbd> cammina · trascina con il mouse per guardare · <kbd>Click</kbd> o <kbd>E</kbd> sull\'oggetto evidenziato per interagire · <kbd>H</kbd> indizio · <kbd>P</kbd> pausa'
+         :'Trascina per guardarti intorno · Tocca un oggetto per spostarlo o raccoglierlo';
+  const mus=lockable
+    ?(locked?'<kbd>WASD</kbd> cammina · <kbd>Mouse</kbd> guarda · <kbd>Click</kbd>/<kbd>E</kbd> su un piedistallo per esporre un pezzo · <kbd>Esc</kbd> libera il cursore'
+            :'Clicca nella sala per camminare nel museo con mouse e tastiera')
+    :desk?'<kbd>WASD</kbd> cammina · trascina per guardare · <kbd>Click</kbd> su un piedistallo per esporre un pezzo'
+         :'Trascina per guardarti intorno · Tocca un piedistallo per esporre o cambiare un pezzo';
+  const r=document.getElementById('roomTips'),m=document.getElementById('musTips');if(r)r.innerHTML=room;if(m)m.innerHTML=mus;
+}
+
+/* ---- pause / start overlay ---- */
+const CONTROLS=`<table class="keys">
+  <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / frecce</td><td>Cammina</td></tr>
+  <tr><td><kbd>Shift</kbd></td><td>Corri</td></tr>
+  <tr><td><kbd>Mouse</kbd></td><td>Guardati intorno</td></tr>
+  <tr><td><kbd>Click</kbd> / <kbd>E</kbd></td><td>Apri, sposta o raccogli ciò che è nel mirino</td></tr>
+  <tr><td><kbd>H</kbd></td><td>Indizio (−15 s)</td></tr>
+  <tr><td><kbd>Rotella</kbd> / <kbd>+</kbd> <kbd>−</kbd></td><td>Zoom</td></tr>
+  <tr><td><kbd>Esc</kbd> / <kbd>P</kbd></td><td>Pausa</td></tr></table>`;
+function showRoomOverlay(kind){
+  const L=game.L,ov=document.getElementById('pauseOv');
+  ov.querySelector('.card').innerHTML=kind==='start'
+    ?`<div style="font-size:2.4rem">${L.icon}</div><h2>${L.name}</h2><p class="note" style="color:var(--muted)">${L.era}</p>
+      <p style="margin:10px 0;line-height:1.5">Cerca i <strong>5 oggetti della lista</strong>: sono nascosti dentro bauli, cesti, vasi, botti e sotto i drappi.
+      Per superare la stanza servono <strong>3 stelle</strong> (massimo 2 errori e almeno 45 s rimasti).</p>${FINE?CONTROLS:''}
+      <div class="row" style="margin-top:14px"><button class="btn" onclick="resumeRoom()">Entra nella stanza</button><button class="btn ghost" onclick="leaveRoom()">Mappa</button></div>`
+    :`<h2>⏸ Pausa</h2><p style="margin:8px 0">Il tempo è fermo.</p>${FINE?CONTROLS:''}
+      <div class="row" style="margin-top:14px"><button class="btn" onclick="resumeRoom()">Riprendi</button><button class="btn ghost" onclick="retryRoom()">Ricomincia</button><button class="btn ghost" onclick="leaveRoom()">Mappa</button></div>`;
+  ov.classList.add('open');
+}
+function pauseRoom(){if(!game||game.over)return;game.paused=true;setHover(null);showRoomOverlay('pause')}
+function resumeRoom(){if(!game||game.over)return;document.getElementById('pauseOv').classList.remove('open');game.paused=false;clock.getDelta();requestLock()}
+
+/* ---- audio ---- */
+let ac=null;
+function beep(f,d=.12,type='sine',v=.07){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.value=f;
+  g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+
+/* ---------------- SCREENS ---------------- */
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  releaseLock(); keys.clear();
+  const po=document.getElementById('pauseOv'); if(po)po.classList.remove('open');
+  if(id!=='room'&&game){game.over=true}
+  if(id==='room'||id==='museum'){ if(!init3D()){go('map');return} }
+  else { mode=null; disposeWorld(); }
+  if(id==='map')renderMap();
+  if(id==='museum')openMuseum();
+  window.scrollTo(0,0);
+}
+
+function renderMap(){
+  const p=document.getElementById('path');p.innerHTML='';
+  const firstOpen=LEVELS.findIndex((l,i)=>isUnlocked(i)&&!isPassed(l.id));
+  LEVELS.forEach((l,i)=>{
+    const un=isUnlocked(i),s=progress.best[l.id]||0,n=document.createElement('div');
+    n.className='node'+(un?'':' locked')+(i===firstOpen?' current':'');
+    n.innerHTML=`<span class="num">${i+1}</span>${isPassed(l.id)?`<span class="rew" title="${l.reward.name}">${l.reward.e}</span>`:''}
+      <span class="ico">${un?l.icon:'🔒'}</span><h3 class="cinzel">${l.name}</h3><small>${l.era}</small>
+      <div class="stars" style="color:${s?'var(--gold)':'#bbb'}">${un?starStr(s):'—'}</div>`;
+    n.onclick=()=>{if(un)startRoom(i);else{const t=n.querySelector('small'),o=t.textContent;t.textContent='Servono 3★ nella stanza precedente';setTimeout(()=>t.textContent=o,1600)}};
+    p.appendChild(n);
+  });
+  const tot=LEVELS.reduce((a,l)=>a+(progress.best[l.id]||0),0);
+  document.getElementById('mapStars').textContent=`⭐ ${tot} / ${LEVELS.length*3}`;
+}
+
+/* ---------------- ROOM ---------------- */
+function startRoom(i){
+  const L=LEVELS[i];
+  document.getElementById('loading').style.display='grid';
+  setTimeout(()=>{
+    go('room'); disposeWorld(); tweens=[]; hovered=null;
+    world=buildRoom(L); mode='room';
+    game={i,L,found:0,errors:0,hints:0,time:TIME_LIMIT,over:false,paused:true};
+    view.yaw=view.ty=0;view.pitch=view.tp=-.12;view.fov=view.tf=65;camera.position.set(0,EYE,0);
+    mount('roomStage');
+    document.getElementById('roomTitle').textContent=`${L.icon} ${L.name}`;
+    const ul=document.getElementById('targets');ul.innerHTML='';
+    L.targets.forEach(t=>{const li=document.createElement('li');li.dataset.name=t[1];li.innerHTML=`<span class="q">❔</span>${t[1]}`;ul.appendChild(li)});
+    document.getElementById('warn').classList.remove('show');
+    updateHud(); document.getElementById('loading').style.display='none';
+    showRoomOverlay('start');
+  },60);
+}
+function retryRoom(){closeModal();startRoom(game.i)}
+function leaveRoom(){go('map')}
+
+function liveStars(){if(!game||game.time<=0)return 0;const f=game.time/TIME_LIMIT;
+  if(game.errors<=NEED3.errors&&f>=NEED3.frac)return 3;if(game.errors<=4&&f>=.1)return 2;return 1}
+let lastHud='';
+function updateHud(){
+  const f=Math.max(0,game.time/TIME_LIMIT),s=liveStars();
+  const key=[Math.ceil(game.time),game.found,game.errors,s].join('|');
+  document.getElementById('timerFill').style.width=(f*100)+'%';
+  if(key===lastHud)return;lastHud=key;
+  document.getElementById('timer').classList.toggle('low',f<.3);
+  document.getElementById('timeLbl').textContent=`⏳ ${Math.ceil(game.time)}s`;
+  document.getElementById('liveStars').innerHTML=[1,2,3].map(k=>k<=s?'★':'<span class="off">★</span>').join('');
+  document.getElementById('foundLbl').textContent=`Trovati: ${game.found}/${game.L.targets.length}`;
+  document.getElementById('errLbl').textContent=`Errori: ${game.errors}`;
+  document.getElementById('warn').classList.toggle('show',!game.over&&s<3&&game.time>0);
+}
+let toastT;
+function toast(msg,kind='info',ms=1800){const t=document.getElementById('toast');t.textContent=msg;t.className='ov toast show '+kind;clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms)}
+
+function toggleHider(h){
+  const ud=h.userData;if(ud.busy)return;ud.busy=true;const open=!ud.open;ud.open=open;
+  beep(open?330:250,.12,'triangle',.05);
+  const from=ud.prog,to=open?1:0;
+  tween(.55,k=>{const p=from+(to-from)*k;ud.prog=p;if(ud.mode==='lid')ud.lid.rotation.x=p*1.9;else h.quaternion.setFromAxisAngle(ud.axis,p*1.5)},()=>{ud.busy=false});
+  const it=ud.content;
+  if(it&&!it.userData.collected&&!it.userData.leaving){
+    const y0=it.userData.baseY,lift=ud.mode==='lid'?.1:0;
+    if(open){setTimeout(()=>{if(!it.userData.leaving)tween(.5,(k,raw)=>{it.position.y=y0+lift*k+Math.sin(raw*PI)*.15})},200)}
+    else it.position.y=y0;
+  }
+}
+function collect(it){
+  if(it.userData.leaving)return;it.userData.leaving=true;it.userData.collected=true;
+  game.found++;beep(660,.1);setTimeout(()=>beep(880,.15),90);
+  const li=[...document.querySelectorAll('#targets li')].find(l=>l.dataset.name===it.userData.name);
+  if(li){li.classList.add('done');li.querySelector('.q').textContent=it.userData.emoji||'✓'}
+  toast('✓ '+it.userData.name,'good');
+  if(hovered===it)hovered=null;
+  const y0=it.position.y;
+  tween(.7,k=>{it.position.y=y0+k*.7;it.scale.setScalar(Math.max(.01,1-k*.95));it.rotation.y+=.25},()=>{it.parent&&it.parent.remove(it)});
+  updateHud();
+  if(game.found===game.L.targets.length){game.over=true;setTimeout(()=>finishRoom(true),800)}
+}
+function mistake(o){
+  game.errors++;game.time=Math.max(0,game.time-PENALTY);beep(160,.25,'sawtooth',.05);
+  toast(`✗ «${o.userData.name}» è d'epoca, ma non è nella lista (−${PENALTY}s)`,'bad',2400);
+  const r0=o.rotation.z;tween(.4,(k,raw)=>{o.rotation.z=r0+Math.sin(raw*PI*4)*.15*(1-raw)},()=>o.rotation.z=r0);
+  updateHud();
+}
+function useHint(){
+  if(!game||game.over||game.paused)return;
+  if(game.time<=HINT_COST+1){toast('Non hai abbastanza tempo per un indizio','bad');return}
+  const rest=world.targets.filter(t=>!t.userData.collected);if(!rest.length)return;
+  const t=rest[Math.floor(R()*rest.length)],h=t.userData.hider,aim=(h&&!h.userData.open)?h:t;
+  game.time-=HINT_COST;game.hints++;
+  const c=new C.Box3().setFromObject(aim).getCenter(new C.Vector3()),v=c.sub(camera.position);
+  view.ty=view.yaw+angDiff(view.yaw,Math.atan2(-v.x,-v.z));view.tp=Math.atan2(v.y,Math.hypot(v.x,v.z));view.tf=Math.min(view.tf,50);
+  tween(2.4,(k,raw)=>{setEm(aim,Math.sin(raw*PI*6)>0?0x8a6a10:0x2a2008)},()=>setEm(aim,null));
+  toast(aim===h?'Prova a spostare ciò che si illumina…':'Eccolo! Guarda ciò che si illumina','info');
+  updateHud();
+}
+
+function finishRoom(win){
+  if(game.done)return;releaseLock();game.done=true;game.over=true;updateHud();document.getElementById('warn').classList.remove('show');
+  const L=game.L,s=win?liveStars():0,card=document.getElementById('modalCard');
+  progress.best[L.id]=Math.max(progress.best[L.id]||0,s);
+  if(s===3){
+    const first=!progress.passed[L.id];progress.passed[L.id]=true;
+    if(!progress.placed.includes(L.id)){const e=progress.placed.indexOf(null);if(e>=0)progress.placed[e]=L.id}
+    save();beep(523,.15);setTimeout(()=>beep(659,.15),150);setTimeout(()=>beep(784,.3),300);
+    const next=game.i+1<LEVELS.length;
+    card.innerHTML=`<h2>Stanza superata!</h2>
+      <div class="bigstars" style="color:var(--gold)"><span>★</span><span>★</span><span>★</span></div>
+      <p style="font-size:.9rem;color:var(--muted)">Tempo residuo ${Math.ceil(game.time)}s · Errori ${game.errors} · Indizi ${game.hints}</p>
+      <div class="reward"><div class="e">${L.reward.e}</div><div><strong>${first?'Nuovo pezzo da collezione: ':''}${L.reward.name}</strong><br><small>${L.reward.desc} ${first?'È già esposto nel tuo museo: puoi spostarlo dove preferisci.':''}</small></div></div>
+      <div class="lore"><h4>📜 ${L.card.title}</h4>${L.card.text}<p style="margin-top:8px"><em>Curiosità — ${L.card.curiosity}</em></p></div>
+      <div class="row">${next?`<button class="btn" onclick="closeModal();go('map')">Prosegui sulla mappa</button>`:''}
+      <button class="btn ${next?'ghost':''}" onclick="closeModal();go('museum')">Visita il museo</button></div>`;
+  } else {
+    save();
+    card.innerHTML=`<h2>${win?'Quasi perfetto!':'Tempo scaduto'}</h2>
+      <div class="bigstars" style="color:var(--gold)">${[1,2,3].map(k=>`<span style="color:${k<=s?'var(--gold)':'#ccc'}">★</span>`).join('')}</div>
+      <p style="margin:8px 0 18px;line-height:1.5">${win?`Hai trovato tutti gli oggetti con ${s} ${s===1?'stella':'stelle'}.`:'Il tempo è finito prima di trovare tutti gli oggetti.'}<br>
+      Per superare la stanza e ricevere il pezzo da collezione servono <strong>3 stelle</strong>: massimo 2 errori e almeno 45 secondi rimasti.<br>
+      <em style="color:var(--muted)">Nessun game over: gli oggetti verranno nascosti in posti nuovi.</em></p>
+      <div class="row"><button class="btn" onclick="retryRoom()">Riprova</button><button class="btn ghost" onclick="closeModal();go('map')">Torna alla mappa</button></div>`;
+  }
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open')}
+
+/* ---------------- MUSEUM ---------------- */
+function openMuseum(){
+  disposeWorld();tweens=[];hovered=null;game=null;
+  world=buildMuseum(progress.placed);mode='museum';
+  view.yaw=view.ty=0;view.pitch=view.tp=-.15;view.fov=view.tf=65;camera.position.set(0,EYE,1.2);
+  mount('museumStage');renderMusPanel();
+}
+function museumRank(){
+  const n=LEVELS.filter(l=>isPassed(l.id)).length;
+  if(n===LEVELS.length)return['💎','Museo Gemma',"Tutte le sale sono complete: la tua collezione è perfetta."];
+  if(n>=4)return['🥇',"Museo d'Oro",'Una collezione ricca e ammirata.'];
+  if(n>=2)return['🥈',"Museo d'Argento",'Le sale si stanno riempiendo di meraviglie.'];
+  if(n>=1)return['🥉','Museo di Bronzo','Il museo ha aperto le porte al pubblico.'];
+  return['🏚️','Museo in allestimento','Supera la prima stanza con 3 stelle per ricevere il primo pezzo.'];
+}
+function renderMusPanel(){
+  const [e,name,desc]=museumRank(),n=LEVELS.filter(l=>isPassed(l.id)).length;
+  document.getElementById('musPanel').innerHTML=`<div class="rankline"><div class="medal">${e}</div><div><h3>${name}</h3><div class="note" style="margin:0">${desc}</div></div></div>
+    <div class="bar"><div style="width:${n/LEVELS.length*100}%"></div></div>
+    <h3>Collezione ${n}/${LEVELS.length}</h3>
+    <div class="coll">${LEVELS.map(l=>{const ok=isPassed(l.id),slot=progress.placed.indexOf(l.id);
+      return `<div class="it ${ok?'':'lock'}"><span class="e">${ok?l.reward.e:'❔'}</span><div>${ok?l.reward.name:'Pezzo da scoprire'}<small>${ok?(slot>=0?`Piedistallo ${slot+1}`:'In magazzino'):l.name}</small></div>
+        ${ok?`<button class="btn small ghost" onclick="showCard('${l.id}')">📜</button>`:''}</div>`}).join('')}</div>
+    <div class="row" style="margin-top:12px"><button class="btn small ghost" onclick="resetAll()">Ricomincia il viaggio</button></div>`;
+}
+function openPicker(idx){
+  const owned=LEVELS.filter(l=>isPassed(l.id)),cur=progress.placed[idx];
+  const card=document.getElementById('modalCard');
+  card.innerHTML=`<h2>Piedistallo ${idx+1}</h2>
+    ${owned.length?`<p class="note" style="color:var(--muted)">Scegli quale pezzo esporre qui.</p><div class="pick">${owned.map(l=>{const at=progress.placed.indexOf(l.id);
+      return `<button class="${cur===l.id?'cur':''}" onclick="placeReward(${idx},'${l.id}')"><span class="e">${l.reward.e}</span><span><strong>${l.reward.name}</strong><br><small>${cur===l.id?'Esposto qui':at>=0?`Ora sul piedistallo ${at+1}`:'In magazzino'}</small></span></button>`}).join('')}</div>`
+      :`<p style="margin:12px 0">Non hai ancora pezzi da esporre. Supera una stanza con 3 stelle per riceverne uno!</p>`}
+    <div class="row">${cur?`<button class="btn ghost small" onclick="placeReward(${idx},null)">Lascia vuoto</button>`:''}<button class="btn small" onclick="closeModal()">Chiudi</button></div>`;
+  document.getElementById('modal').classList.add('open');
+}
+function placeReward(idx,id){
+  if(id){const at=progress.placed.indexOf(id);if(at>=0)progress.placed[at]=null}
+  progress.placed[idx]=id;save();closeModal();
+  const keep={y:view.yaw,ty:view.ty,p:view.pitch,tp:view.tp};openMuseum();Object.assign(view,{yaw:keep.y,ty:keep.ty,pitch:keep.p,tp:keep.tp});
+}
+function showCard(id){
+  const l=LEVELS.find(x=>x.id===id);
+  document.getElementById('modalCard').innerHTML=`<div style="font-size:2.4rem">${l.icon}</div><h2>${l.name}</h2><small>${l.era}</small>
+    <div class="lore"><h4>${l.card.title}</h4>${l.card.text}<p style="margin-top:8px"><em>Curiosità — ${l.card.curiosity}</em></p></div>
+    <button class="btn" onclick="closeModal()">Chiudi</button>`;
+  document.getElementById('modal').classList.add('open');
+}
+function resetAll(){if(confirm('Vuoi cancellare tutti i progressi e ricominciare il viaggio?')){progress={passed:{},best:{},placed:Array(SLOT_COUNT).fill(null)};save();openMuseum()}}
+</script>
+</body>
+</html>
